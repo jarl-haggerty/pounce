@@ -9,7 +9,7 @@
              (apply merge-with #(cons (+ (first %1) (first %2)) (rest %1))
                     (for [temp terms]
                       (if (number? temp)
-                        {[1 1] temp}
+                        {[1 1] [temp 1 1]}
                         (if (= (count temp) 3)
                           {(rest temp) temp}
                           (if (number? (first temp))
@@ -42,73 +42,47 @@
            (apply polynomial (cons [x 1 1] (vals y))))
 
 (defmethod negate :polynomial [x]
-    (apply polynomial (map #(cons (- (first %)) (rest %)) (vals x))))
+           (apply polynomial (map #(cons (- (first %)) (rest %)) (vals x))))
 
-(defmethod less-than [:polynomial :polynomial] [x y]
-  (let [x-terms
-         (sort-by #(if (= (second %) :epsilon) (first %) 0) 
-           (filter #(or (= (second %) 1) (= (second %) :epsilon)) 
-                   (vals x)))
-        y-terms
-         (sort-by #(if (= (second %) :epsilon) (first %) 0)
-           (filter #(or (= (second %) 1) (= (second %) :epsilon)) 
-                   (vals y)))]
-    (loop [x-stack x-terms y-stack y-terms]
-      (cond 
-        (and (empty? x-stack) (empty? y-stack))
-        false
-        (empty? x-stack)
-        (> (first (first y-stack)) 0)
-        (empty? y-stack)
-        (< (first (first x-stack)) 0)
-        true
-        (let [x-epsilon-power (if (= (second (first x-stack)) :epsilon) (last (first x-stack)) nil)
-              y-epsilon-power (if (= (second (first y-stack)) :epsilon) (last (first y-stack)) nil)]
-          (cond
-            (= [false false] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (cond
-             (> (first (first x-stack)) (first (first y-stack)))
-             false
-             (= (first (first x-stack)) (first (first y-stack)))
-             (recur (rest x-stack) (rest y-stack))
-             (< (first (first x-stack)) (first (first y-stack)))
-             true)
-            (= [true false] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (> (first (first y-stack)) 0)
-            (= [false true] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (< (first (first x-stack)) 0)
-            (= [true true] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (cond 
-              (= x-epsilon-power y-epsilon-power)
-              (cond
-               (> (first (first x-stack)) (first (first y-stack)))
-               false
-               (= (first (first x-stack)) (first (first y-stack)))
-               (recur (rest x-stack) (rest y-stack))
-               (< (first (first x-stack)) (first (first y-stack)))
-               true)
-              (< x-epsilon-power y-epsilon-power)
-              (cond 
-                (and (< (first (first x-stack)) 0) (< (first (first y-stack)) 0))
-                true 
-                (and (> (first (first x-stack)) 0) (< (first (first y-stack)) 0))
-                false
-                (and (< (first (first x-stack)) 0) (> (first (first y-stack)) 0))
-                true
-                (and (> (first (first x-stack)) 0) (> (first (first y-stack)) 0))
-                false)
-              (> x-epsilon-power y-epsilon-power)
-              (cond 
-                (and (< (first (first x-stack)) 0) (< (first (first y-stack)) 0))
-                false
-                (and (> (first (first x-stack)) 0) (< (first (first y-stack)) 0))
-                false
-                (and (< (first (first x-stack)) 0) (> (first (first y-stack)) 0))
-                true
-                (and (> (first (first x-stack)) 0) (> (first (first y-stack)) 0))
-                true))))))))
-(defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
-(defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))
+(defmethod multiply [:polynomial nil] [x y]
+           (apply polynomial (map #(cons (* (first %) y) (rest %)) (vals x))))
+(defmethod multiply [nil :polynomial] [x y]
+           (apply polynomial (map #(cons (* (first %) x) (rest %)) (vals y))))
 
 (defn constant-part [input]
   (apply polynomial (filter #(or (= (second %) 1) (= (second %) :epsilon)) (vals input))))
+
+(defmethod less-than [:polynomial :polynomial] [x y]
+           (let [max-power (apply max (concat (map second (keys (constant-part x)))
+                                              (map second (keys (constant-part y)))))
+                 [x-terms y-terms] (map
+                                    (fn [input]
+                                      (loop [stack (sort-by #(if (number? (second %)) 0 last)
+                                                            (vals (constant-part input)))
+                                             index (range (inc max-power))
+                                             accum []]
+                                        (if (empty? index)
+                                          accum
+                                          (if (number? (second (first stack)))
+                                            (recur (rest stack) (rest index) (conj accum (first (first stack))))
+                                            (if (= (last (first stack)) (first index))
+                                              (recur (rest stack) (rest index) (conj accum (first (first stack))))
+                                              (recur stack (rest index) (conj accum 0)))))))
+                                    x y)]
+             (loop [x-stack x-terms y-stack y-terms]
+               (cond
+                (< (first x-stack) (first y-stack))
+                true
+                (> (first x-stack) (first y-stack))
+                true
+                (= (first x-stack) (first y-stack))
+                (recur (rest x-stack) (rest y-stack))))))
+
+(defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
+(defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))
+
+(def data [(polynomial [-1/3 :epsilon 1] [-2/3 :epsilon 2] [1 :epsilon 4])
+           (polynomial [-1 :epsilon 2] [1 :epsilon 4])
+           (polynomial [1/2 :epsilon 4] [-3/2 1 1] [-1/2 :epsilon 3])
+           (polynomial [-1 1 1] [1 :epsilon 4])
+           (polynomial [1/2 :epsilon 4] [-2 1 1] [-1/2 :epsilon 5])])

@@ -4,6 +4,24 @@
         pounce.math.matrix)
   (:refer-clojure :exclude [+ - * / < <= > >=]))
 
+
+(defn max-key
+  "Returns the x for which (k x), a number, is greatest."
+  {:added "1.0"}
+  ([k x] x)
+  ([k x y] (if (> (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(max-key k %1 %2) (max-key k x y) more)))
+
+(defn min-key
+  "Returns the x for which (k x), a number, is least."
+  {:added "1.0"}
+  ([k x] x)
+  ([k x y] (if (< (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(min-key k %1 %2) (min-key k x y) more)))
+
+
 (defstruct lcp-step :moved-out :equations)
 (defstruct linear-equation :left :right)
 
@@ -21,14 +39,21 @@
   ;(doall (for [equation (:equations system)] (println (-> equation :right (get moving-in)))))
   (let [ratios 
          (for [equation (:equations system)]
-           (if (and (-> equation :right (get [moving-in 1])) (> 0 (first (get [moving-in 1]))))
-             (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1])))
+           (if (and (get (:right equation) [moving-in 1])
+                    (if (= moving-in [:z 0])
+                      true
+                      (> 0 (first (get (:right equation) [moving-in 1])))))
+             (do
+               ;(println (first (get (:right equation) [moving-in 1])))
+               ;(println (constant-part (:right equation)))
+               ;(println (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1])))lambda)
+               (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1]))))
              (polynomial (if (= moving-in [:z 0]) positive-infinity negative-infinity))))
-
+        aco (println "ratios" (interleave ratios (repeat (count ratios) ",")))
         row (if (= moving-in [:z 0])
-              (min-key #(nth ratios %) (range (count ratios)))
-              (min-key #(nth ratios %) (range (count ratios))))
-        ;temp (println row)
+              (apply min-key #(nth ratios %) (range (count ratios)))
+              (apply max-key #(nth ratios %) (range (count ratios))))
+        temp (println "row" row)
         tt (doall (for [e (:equations system)] (println (:left e) "=" (:right e))))
         ;rrr (println 'gggggggg)
         ;t2          (println ((:equations system) row))
@@ -64,7 +89,7 @@
                  (apply vector
                         (for [row (range 1 (inc (:height M)))] 
                           (struct linear-equation 
-                                  (polynomial [ 1 [:w row]])
+                                  (polynomial [1 [:w row]])
                                   (apply polynomial
                                          (get-cell q (dec row))
                                          [1 [:z 0]]
@@ -119,10 +144,10 @@
     (take (:width A) (:z (solve-lcp M q)))))
 
 (def A (matrix [-1 2 3 1 -1 1] 3 2))
-;(def b (matrix [2 -1 3]))
-;(def c (matrix [1 1]))
-;(def M (stack (append (zero 2 2) (transpose A)) (append (- A) (zero 3 3))))
-;(def q (stack (- c) b))
+(def b (matrix [2 -1 3]))
+(def c (matrix [1 1]))
+(def M (stack (append (zero 2 2) (transpose A)) (append (- A) (zero 3 3))))
+(def q (stack (- c) b))
 
 
 (comment
