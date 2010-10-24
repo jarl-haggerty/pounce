@@ -1,6 +1,8 @@
 (ns pounce.math.lcp
   (:use pounce.math.core
-        pounce.math.polynomial))
+        pounce.math.polynomial
+        pounce.math.matrix)
+  (:refer-clojure :exclude [+ - * / < <= > >=]))
 
 (defstruct lcp-step :moved-out :equations)
 (defstruct linear-equation :left :right)
@@ -23,14 +25,9 @@
              (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1])))
              (polynomial (if (= moving-in [:z 0]) positive-infinity negative-infinity))))
 
-        row (let [comparator (if (= moving-in [:z 0])
-                               epsilon-less-than
-                               epsilon-greater-than)]
-              (reduce #(if (comparator (first %1) %2)
-                         [(first %1) (second %1) (inc (last %1))]
-                         [%2 (inc (last %1)) (inc (last %1))])
-                      [(first ratios) 0 0]
-                      (rest ratios)))
+        row (if (= moving-in [:z 0])
+              (min-key #(nth ratios %) (range (count ratios)))
+              (min-key #(nth ratios %) (range (count ratios))))
         ;temp (println row)
         tt (doall (for [e (:equations system)] (println (:left e) "=" (:right e))))
         ;rrr (println 'gggggggg)
@@ -122,10 +119,10 @@
     (take (:width A) (:z (solve-lcp M q)))))
 
 (def A (matrix [-1 2 3 1 -1 1] 3 2))
-(def b (matrix [2 -1 3]))
-(def c (matrix [1 1]))
-(def M (stack (append (zero 2 2) (transpose A)) (append (- A) (zero 3 3))))
-(def q (stack (- c) b))
+;(def b (matrix [2 -1 3]))
+;(def c (matrix [1 1]))
+;(def M (stack (append (zero 2 2) (transpose A)) (append (- A) (zero 3 3))))
+;(def q (stack (- c) b))
 
 
 (comment

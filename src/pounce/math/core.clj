@@ -1,5 +1,5 @@
 (ns pounce.math.core
-  (:refer-clojure :exclude [+ - * /]))
+  (:refer-clojure :exclude [+ - * / < <= > >=]))
 
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
@@ -21,7 +21,7 @@
     (reduce + (+ x y) more)))
 
 (defmulti negate (fn [x] (:type (meta x))))
-(defmethod negate :default [x y] (clojure.core/+ x y))
+(defmethod negate :default [x] (clojure.core/- x))
 (defn -
   ([] 0)
   ([x] (negate x))
@@ -30,7 +30,7 @@
     (reduce - (- x y) more)))
 
 (defmulti multiply (fn [x y] [(:type (meta x)) (:type (meta y))]))
-(defmethod multiply :default [x y] (clojure.core/+ x y))
+(defmethod multiply :default [x y] (clojure.core/* x y))
 (defn * 
   ([] 1)
   ([x] x)
@@ -39,10 +39,41 @@
     (reduce * (* x y) more)))
 
 (defmulti invert (fn [x] (:type (meta x))))
-(defmethod invert :default [x y] (clojure.core/+ x y))
+(defmethod invert :default [x] (clojure.core// x))
 (defn / 
   ([] 1)
   ([x] (invert x))
   ([x y] (* x (invert y)))
   ([x y & more]
     (reduce / (/ x y) more)))
+
+(defmulti less-than (fn [x y] [(:type (meta x)) (:type (meta y))]))
+(defmethod less-than :default [x y] (clojure.core/< x y))
+(defn <
+  ([] true)
+  ([x] true)
+  ([x y] (less-than x y))
+  ([x y & more]
+      (reduce < (< x y) more)))
+
+(defn <=
+  ([] true)
+  ([x] true)
+  ([x y] (or (= x y) (< x y)))
+  ([x y & more]
+      (reduce <= (<= x y) more)))
+
+(defn >
+  ([] true)
+  ([x] true)
+  ([x y] (< (- x) (- y)))
+  ([x y & more]
+      (reduce > (> x y) more)))
+
+(defn >=
+  ([] true)
+  ([x] true)
+  ([x y] (or (= x y) (> x y)))
+  ([x y & more]
+      (reduce >= (>= x y) more)))
+

@@ -1,10 +1,11 @@
 (ns pounce.math.polynomial
-  (:use pounce.math.core))
+  (:use pounce.math.core)
+  (:refer-clojure :exclude [+ - * / < <= > >=]))
 
 (defn polynomial [& terms]
   (let [new-poly
          (into {}
-           (filter #(not= (second %) 0)
+           (filter #(not= (first (second %)) 0)
              (apply merge-with #(cons (+ (first %1) (first %2)) (rest %1))
                     (for [temp terms]
                       (if (number? temp)
@@ -16,7 +17,7 @@
                             {temp (cons 1 temp)})))))))]
     (with-meta new-poly {:type :polynomial})))
 
-(defmethod print-method :polynomial [x ^Writer writer]
+(defmethod print-method :polynomial [x writer]
   (.write writer
     (str
       (loop [stack x result ""]
@@ -29,8 +30,8 @@
               (if (.isEmpty result) 
                 "" 
                 " + ") 
-              (second (first stack))
-              (first (first (first stack)))
+              (first (second (first stack)))
+              (if (number? (first (first (first stack)))) "" (first (first (first stack))))
               "**" (second (first (first stack))))))))))
 
 (defmethod add [:polynomial :polynomial] [x y] 
@@ -41,9 +42,9 @@
            (apply polynomial (cons [x 1 1] (vals y))))
 
 (defmethod negate :polynomial [x]
-    (apply polynomial (map #(cons (- (first %)) (rest %)) (vals y))))
+    (apply polynomial (map #(cons (- (first %)) (rest %)) (vals x))))
 
-(defn epsilon-less-than [x y]
+(defmethod less-than [:polynomial :polynomial] [x y]
   (let [x-terms
          (sort-by #(if (= (second %) :epsilon) (first %) 0) 
            (filter #(or (= (second %) 1) (= (second %) :epsilon)) 
@@ -106,8 +107,8 @@
                 true
                 (and (> (first (first x-stack)) 0) (> (first (first y-stack)) 0))
                 true))))))))
-(defn epsilon-greater-than [x y]
-  (polynomial-less-than (- x) (- y)))
+(defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
+(defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))
 
 (defn constant-part [input]
-  (apply polynomial (filter #(or (= (second %) 1) (= (second %) :epsilon)) (vals input)))
+  (apply polynomial (filter #(or (= (second %) 1) (= (second %) :epsilon)) (vals input))))

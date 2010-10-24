@@ -1,5 +1,6 @@
 (ns pounce.math.matrix
-  (:use pounce.math.core))
+  (:use pounce.math.core)
+  (:refer-clojure :exclude [+ - * / <= < > >=]))
 
 (defstruct matrix-struct :data :height :width)
 
@@ -14,10 +15,10 @@
 
 (defn zero
   ([height] (zero height 1))
-  ([height width] (matrix (map #(do % 0) (range (/* height width))) height width)))
+  ([height width] (matrix (map #(do % 0) (range (* height width))) height width)))
 
 (defn scalar-matrix
-  ([size scale] (matrix (map #(if (= (// % size) (mod % size)) scale 0) (range (/* size size))) size size))
+  ([size scale] (matrix (map #(if (= (/ % size) (mod % size)) scale 0) (range (* size size))) size size))
   ([size] (scalar-matrix size 1)))
 
 (defn component
@@ -26,11 +27,11 @@
 
 (defn get-cell 
   ([M position] (if (= (:height M) 1) (get-cell M 0 position) (get-cell M position 0)))
-  ([M row column] ((:data M) (/+ row (/* (:height M) column)))))
+  ([M row column] ((:data M) (+ row (* (:height M) column)))))
 
 (defn columns [M] 
   (for [column (range (:width M))] 
-    (subvec (:data M) (/* column (:height M)) (/* (inc column) (:height M)))))
+    (subvec (:data M) (* column (:height M)) (* (inc column) (:height M)))))
 
 (defn rows [M] 
   (for [row (range (:height M))] 
@@ -40,7 +41,7 @@
   ([M] M)
   ([M N] 
     (if (= (:width M) (:width N))
-      (matrix (flatten (interleave (columns M) (columns N))) (/+ (:height M) (:height N)) (:width M))
+      (matrix (flatten (interleave (columns M) (columns N))) (+ (:height M) (:height N)) (:width M))
       nil))
   ([M N & more] 
      (reduce stack (stack M N) more)))
@@ -49,7 +50,7 @@
   ([M] M)
   ([M N] 
     (if (= (:height M) (:height N))
-      (matrix (flatten (concat (columns M) (columns N))) (:height M) (/+ (:width M) (:width N)))
+      (matrix (flatten (concat (columns M) (columns N))) (:height M) (+ (:width M) (:width N)))
       nil))
   ([M N & more] 
      (reduce append (append M N) more)))
@@ -58,7 +59,7 @@
   (matrix (flatten (rows M)) (:width M) (:height M)))
 
 (defn rotation-matrix
-  ([angle] (matrix [(cos angle) (/- (sin angle)) (sin angle) (cos angle)] 2 2)))
+  ([angle] (matrix [(cos angle) (- (sin angle)) (sin angle) (cos angle)] 2 2)))
 
 (defn row-minor [M row]
   (let [matrix-rows (apply vector (rows M))]
@@ -74,19 +75,19 @@
 (defn size [M] 
   (count (:data M)))
 
-(defmethod print-method :matrix [M writer] 
+(defmethod print-method :matrix [M writer]
   (let [largest-number (reduce max (map #(-> % str count) (:data M)))]
-    (doall
-      (for [row (range (:height M)) column (range (:width M))]
+      (doseq [row (range (:height M)) column (range (:width M))]
         (if (and (= (dec (:width M)) column) (< row (dec (:height M))))
           (print-method (format (str "%" largest-number "s\n") (str (get-cell M row column))) writer)
-          (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer))))))
+          (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer)
+          ))))
 
 (defmethod add [nil :matrix] [x y] (matrix (map #(+ x %) (:data y)) (:height y) (:width y)))
 (defmethod add [:matrix nil] [x y] (matrix (map #(+ % y) (:data x)) (:height x) (:width x)))
 (defmethod add [:matrix :matrix] [x y] (matrix (map + (:data x) (:data y)) (:height x) (:width x)))
 
-(defmethod negate :matrix [x] (matrix (map - (:data x)) (:height x) (:width x)))
+(defmethod negate :matrix [x] (println x) (matrix (map - (:data x)) (:height x) (:width x)))
 
 (defmethod multiply [nil :matrix] [x y] (matrix (map #(* x %) (:data y)) (:height y) (:width y)))
 (defmethod multiply [:matrix nil] [x y] (matrix (map #(* % y) (:data x)) (:height x) (:width x)))
