@@ -55,28 +55,35 @@
 (defmethod less-than [:polynomial :polynomial] [x y]
            (let [max-power (apply max (concat (map second (keys (constant-part x)))
                                               (map second (keys (constant-part y)))))
+                 ;q (println max-power)
                  [x-terms y-terms] (map
                                     (fn [input]
-                                      (loop [stack (sort-by #(if (number? (second %)) 0 last)
+                                      ;(println "starting" input)
+                                      (loop [stack (sort-by #(if (number? (second %)) 0 (last %))
                                                             (vals (constant-part input)))
                                              index (range (inc max-power))
                                              accum []]
+                                        ;(println input (first stack) index)
                                         (if (empty? index)
-                                          accum
+                                          ;(do (println "return accum")
+                                            accum;)
                                           (if (number? (second (first stack)))
                                             (recur (rest stack) (rest index) (conj accum (first (first stack))))
                                             (if (= (last (first stack)) (first index))
                                               (recur (rest stack) (rest index) (conj accum (first (first stack))))
                                               (recur stack (rest index) (conj accum 0)))))))
-                                    x y)]
+                                    [x y])]
+             ;(println x-terms y-terms)
              (loop [x-stack x-terms y-stack y-terms]
-               (cond
-                (< (first x-stack) (first y-stack))
-                true
-                (> (first x-stack) (first y-stack))
-                true
-                (= (first x-stack) (first y-stack))
-                (recur (rest x-stack) (rest y-stack))))))
+               (if (empty? x-stack)
+                 false
+                 (cond
+                  (< (first x-stack) (first y-stack))
+                  true
+                  (> (first x-stack) (first y-stack))
+                  false
+                  (= (first x-stack) (first y-stack))
+                  (recur (rest x-stack) (rest y-stack)))))))
 
 (defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
 (defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))

@@ -124,17 +124,17 @@
                                          [:w (second (:moved-out equations))])))))
         subscript-sort
           (fn [equation]
-            (first (first (keys (:left equation)))))]
+            (second (first (first (keys (:left equation))))))]
     (println "lcp-solved")
-    (doall (for [equation (:equations lcp-solution)] (println equation)))
+    (doseq [equation (:equations lcp-solution)] (println equation))
     (println "lcp-solved")
-    {'w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (keys (:left equation)))) 'w)
-            (get (:right equation) {})
+    {:w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) :w)
+            (first (get (:right equation) [1 1]))
             0))
-     'z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (keys (:left equation)))) 'z)
-            (get (:right equation) {})
+     :z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) :z)
+            (first (get (:right equation) [1 1]))
             0))}))
     
   
