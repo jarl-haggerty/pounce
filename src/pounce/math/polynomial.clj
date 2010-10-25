@@ -1,6 +1,6 @@
 (ns pounce.math.polynomial
   (:use pounce.math.core)
-  (:refer-clojure :exclude [+ - * / < <= > >=]))
+  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key]))
 
 (defn polynomial [& terms]
   (let [new-poly
@@ -30,9 +30,19 @@
               (if (.isEmpty result) 
                 "" 
                 " + ") 
-              (first (second (first stack)))
-              (if (number? (first (first (first stack)))) "" (first (first (first stack))))
-              "**" (second (first (first stack))))))))))
+              (cond (= 1 (first (second (first stack))))
+                    ""
+                    (and (= -1 (first (second (first stack))))
+                         (not (number? (first (first (first stack))))))
+                    "-"
+                    :else
+                    (first (second (first stack))))
+              (if (number? (first (first (first stack))))
+                ""
+                (first (first (first stack))))
+              (if (= 1 (second (first (first stack))))
+                ""
+                (str "**" (second (first (first stack))))))))))))
 
 (defmethod add [:polynomial :polynomial] [x y] 
            (apply polynomial (concat (vals x) (vals y))))
