@@ -1,6 +1,5 @@
 (ns pounce.math.transform
-  (:use pounce.math.core
-        pounce.math.matrix))
+  (:use pounce.math.matrix))
 
 (defstruct transformation-struct :type :translation :rotation)
 
@@ -13,7 +12,7 @@
         (rotation-matrix (first rotation))
         (first rotation)))))
 
-(def identity-transform 
+(def identity-transform
   (transformation 
     (zero 2) 
     (scalar-matrix 2)))

@@ -1,6 +1,5 @@
 (ns pounce.math.matrix
-  (:use pounce.math.core)
-  (:refer-clojure :exclude [+ - * / <= < > >=]))
+  (:use pounce.math.operations))
 
 (defstruct matrix-struct :data :height :width)
 
@@ -28,6 +27,13 @@
 (defn get-cell 
   ([M position] (if (= (:height M) 1) (get-cell M 0 position) (get-cell M position 0)))
   ([M row column] ((:data M) (+ row (* (:height M) column)))))
+
+(defn set-cell
+  ([M position value] (if (= (:height M) 1) (set-cell M 0 position value) (set-cell M position 0 value)))
+  ([M row column value] (matrix (assoc (:data M) (+ row (* (:height M) column)) value) (:height M) (:width M))))
+
+(defn x [M] (get-cell M 0))
+(defn y [M] (get-cell M 1))
 
 (defn columns [M] 
   (for [column (range (:width M))] 
@@ -97,6 +103,10 @@
       (reduce + (map * row column)))
     (:height x)
     (:width y)))
+(defmethod multiply [:transform :matrix] [x y]
+           (matrix (take 2 (multiply (stack (append (:rotation) (:translation x)) (matrix [0 0 1] 1 2))
+                                     (stack y (matrix [1] 1 1))))
+                   2 1))
 
 (defn signature [permutation] 
   (let [inversions 
@@ -131,13 +141,22 @@
 
 (defmethod invert :matrix [x] (/ (transpose (cofactor-matrix x)) (determinant x)))
 
-(defn x [a b] 
+(defn X [a b] 
   (- (* (get-cell a 0) (get-cell b 1)) (* (get-cell b 0) (get-cell a 1))))
-
-(defn length-squared [input] (reduce + (map #(* % %) (:data input))))
+(defn dot [a b] (- (+ (map * (:data a) (:data b))) 1))
+(defn length-squared [input] (dot input input))
 (defn length [input] (sqrt (length-squared input)))
 (defn unit [input] (/ input (length input)))
 (defn normal [input] 
   (if (= (size input) 2)
     (unit (column (get-cell input 1) (- (get-cell input 0))))
     nil))
+
+(defn x [M] (get-cell M 0))
+(defn y [M] (get-cell M 1))
+
+(defn rotation [theta] (matrix [(cos theta) (sin theta) (- (sin theta)) (cos theta)] 2 2))
+(defstruct transform-struct :translation :rotation)
+(defn transform
+  ([x y angle] (transform (matrix [x y] 2 1) angle))
+  ([displacement angle] (with-meta (struct transform-struct displacement (rotation theta)) {:type :transform})))

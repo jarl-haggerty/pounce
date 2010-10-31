@@ -1,8 +1,7 @@
 (ns pounce.math.lcp
-  (:use pounce.math.core
-        pounce.math.polynomial
-        pounce.math.matrix)
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key]))
+  (:use pounce.math.polynomial
+        pounce.math.matrix
+        pounce.math.operations))
 
 (defstruct lcp-step :moved-out :equations)
 (defstruct linear-equation :left :right)
@@ -46,7 +45,7 @@
          (struct lcp-step
                  [:w 0]    
                  (apply vector
-                        (for [row (range 1 (inc (:height M)))] 
+                        (for [row (range 1 (inc (:height M)))]
                           (struct linear-equation 
                                   (polynomial [1 [:w row]])
                                   (apply polynomial
@@ -83,7 +82,6 @@
         subscript-sort
           (fn [equation]
             (second (first (first (keys (:left equation))))))]
-    (doseq [x (:equations initial-equations)] (println (:left x) '= (:right x)))
     {:w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
           (if (= (first (first (first (keys (:left equation))))) :w)
             (first (get (:right equation) [1 1]))

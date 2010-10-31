@@ -1,6 +1,5 @@
 (ns pounce.math.polynomial
-  (:use pounce.math.core)
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key]))
+  (:use pounce.math.operations))
 
 (defn polynomial [& terms]
   (let [new-poly
@@ -97,9 +96,3 @@
 
 (defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
 (defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))
-
-(def data [(polynomial [-1/3 :epsilon 1] [-2/3 :epsilon 2] [1 :epsilon 4])
-           (polynomial [-1 :epsilon 2] [1 :epsilon 4])
-           (polynomial [1/2 :epsilon 4] [-3/2 1 1] [-1/2 :epsilon 3])
-           (polynomial [-1 1 1] [1 :epsilon 4])
-           (polynomial [1/2 :epsilon 4] [-2 1 1] [-1/2 :epsilon 5])])

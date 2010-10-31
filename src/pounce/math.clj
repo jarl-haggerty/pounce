@@ -1,17 +1,8 @@
-(ns pounce.math
-  (:import 
-    java.lang.Math 
-    java.io.Writer)
-  (:use clojure.set)
-  (:refer-clojure :exclude [+ - * /]))
+(ns pounce.math)
 
-(def positiveInfinity Double/POSITIVE_INFINITY)
-(def negativeInfinity Double/NEGATIVE_INFINITY)
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
-(def epsilon 'epsilon)
 
-(defn isInfinite [input] (Double/isInfinite input))
 (defn is-infinite [input] (Double/isInfinite input))
 (defn sin [input] (Math/sin input))
 (defn cos [input] (Math/cos input))
@@ -19,58 +10,83 @@
 (defn sqrt [input] (Math/sqrt input))
 (defn abs [input] (Math/abs input))
 
-(defstruct term-struct :coefficient :variables)
-(defn term 
-  [head & variable-powers]
-    (cond 
-      (empty? variable-powers)
-      (if (number? head)
-        (with-meta (struct term-struct head {}) {:type :term})
-        (with-meta (struct term-struct 1 {head 1}) {:type :term}))
-      (= (count variable-powers) 1)
-      (let [one head two (first variable-powers)]
-        (cond 
-          (and (number? one) (number? two))
-          (with-meta (struct term-struct (pow one two) {}) {:type :term})
-          (number? one)
-          (with-meta (struct term-struct one {two 1}) {:type :term})
-          (number? two)
-          (with-meta (struct term-struct 1 {one two}) {:type :term})))
-      true
-      (if (number? head)
-        (with-meta 
-          (struct term-struct 
-            head 
-            (apply merge-with clojure.core/+ 
-              (for [temp (partition 2 variable-powers)] 
-                {(first temp) (second temp)}))) 
-          {:type :term})
-        (with-meta 
-          (struct term-struct 
-            1 
-            (apply merge-with clojure.core/+
-              (for [temp (partition 2 (cons head variable-powers))] 
-                {(first temp) (second temp)}))) 
-          {:type :term}))))
-(defn add-terms [x y]
-  (if (= (:variables x) (:variables y))
-    (assoc x 
-      :coefficient 
-      (clojure.core/+ (:coefficient x) (:coefficient y)))
-    (throw (Exception. "Can't add terms"))))
-(defn multiply-terms [x y]
-  (apply term (clojure.core/* (:coefficient x) (:coefficient y))
-    (interleave (keys (:variables x)) (vals (:variables x)) (keys (:variables y)) (vals (:variables y)))))
-(defn negate-term [x]
-  (assoc x :coefficient (clojure.core/- (:coefficient x))))
-(defn polynomial [& terms]
-  (let [new-poly
-         (into {}
-           (filter #(not= (:coefficient (second %)) 0)
-             (apply merge-with add-terms
-               (for [temp terms]
-                 {(:variables temp) temp}))))]
-    (with-meta new-poly {:type :polynomial})))
+(defmulti add (fn [x y] [(:type (meta x)) (:type (meta y))]))
+(defmethod add :default [x y] (clojure.core/+ x y))
+(defn +
+  ([] 0)
+  ([x] x)
+  ([x y] (add x y))
+  ([x y & more]
+    (reduce + (+ x y) more)))
+
+(defmulti negate (fn [x] (:type (meta x))))
+(defmethod negate :default [x] (clojure.core/- x))
+(defn -
+  ([] 0)
+  ([x] (negate x))
+  ([x y] (+ x (negate y)))
+  ([x y & more]
+    (reduce - (- x y) more)))
+
+(defmulti multiply (fn [x y] [(:type (meta x)) (:type (meta y))]))
+(defmethod multiply :default [x y] (clojure.core/* x y))
+(defn * 
+  ([] 1)
+  ([x] x)
+  ([x y] (multiply x y))
+  ([x y & more]
+    (reduce * (* x y) more)))
+
+(defmulti invert (fn [x] (:type (meta x))))
+(defmethod invert :default [x] (clojure.core// x))
+(defn / 
+  ([] 1)
+  ([x] (invert x))
+  ([x y] (* x (invert y)))
+  ([x y & more]
+    (reduce / (/ x y) more)))
+
+(defmulti less-than (fn [x y] [(:type (meta x)) (:type (meta y))]))
+(defmethod less-than :default [x y] (clojure.core/< x y))
+(defn <
+  ([] true)
+  ([x] true)
+  ([x y] (less-than x y))
+  ([x y & more]
+      (reduce < (< x y) more)))
+
+(defn <=
+  ([] true)
+  ([x] true)
+  ([x y] (or (= x y) (< x y)))
+  ([x y & more]
+      (reduce <= (<= x y) more)))
+
+(defn >
+  ([] true)
+  ([x] true)
+  ([x y] (< (- x) (- y)))
+  ([x y & more]
+      (reduce > (> x y) more)))
+
+(defn >=
+  ([] true)
+  ([x] true)
+  ([x y] (or (= x y) (> x y)))
+  ([x y & more]
+      (reduce >= (>= x y) more)))
+
+(defn max-key
+  ([k x] x)
+  ([k x y] (if (> (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(clojure.core/max-key k %1 %2) (clojure.core/max-key k x y) more)))
+
+(defn min-key
+  ([k x] x)
+  ([k x y] (if (< (k x) (k y)) x y))
+  ([k x y & more]
+   (reduce #(clojure.core/min-key k %1 %2) (clojure.core/min-key k x y) more)))
 
 (defstruct matrix-struct :data :height :width)
 
@@ -85,10 +101,10 @@
 
 (defn zero
   ([height] (zero height 1))
-  ([height width] (matrix (map #(do % 0) (range (clojure.core/* height width))) height width)))
+  ([height width] (matrix (map #(do % 0) (range (* height width))) height width)))
 
 (defn scalar-matrix
-  ([size scale] (matrix (map #(if (= (clojure.core// % size) (mod % size)) scale 0) (range (clojure.core/* size size))) size size))
+  ([size scale] (matrix (map #(if (= (/ % size) (mod % size)) scale 0) (range (* size size))) size size))
   ([size] (scalar-matrix size 1)))
 
 (defn component
@@ -97,11 +113,14 @@
 
 (defn get-cell 
   ([M position] (if (= (:height M) 1) (get-cell M 0 position) (get-cell M position 0)))
-  ([M row column] ((:data M) (clojure.core/+ row (clojure.core/* (:height M) column)))))
+  ([M row column] ((:data M) (+ row (* (:height M) column)))))
+
+(defn x [M] (get-cell M 0))
+(defn y [M] (get-cell M 1))
 
 (defn columns [M] 
   (for [column (range (:width M))] 
-    (subvec (:data M) (clojure.core/* column (:height M)) (clojure.core/* (inc column) (:height M)))))
+    (subvec (:data M) (* column (:height M)) (* (inc column) (:height M)))))
 
 (defn rows [M] 
   (for [row (range (:height M))] 
@@ -111,7 +130,7 @@
   ([M] M)
   ([M N] 
     (if (= (:width M) (:width N))
-      (matrix (flatten (interleave (columns M) (columns N))) (clojure.core/+ (:height M) (:height N)) (:width M))
+      (matrix (flatten (interleave (columns M) (columns N))) (+ (:height M) (:height N)) (:width M))
       nil))
   ([M N & more] 
      (reduce stack (stack M N) more)))
@@ -120,7 +139,7 @@
   ([M] M)
   ([M N] 
     (if (= (:height M) (:height N))
-      (matrix (flatten (concat (columns M) (columns N))) (:height M) (clojure.core/+ (:width M) (:width N)))
+      (matrix (flatten (concat (columns M) (columns N))) (:height M) (+ (:width M) (:width N)))
       nil))
   ([M N & more] 
      (reduce append (append M N) more)))
@@ -129,7 +148,7 @@
   (matrix (flatten (rows M)) (:width M) (:height M)))
 
 (defn rotation-matrix
-  ([angle] (matrix [(cos angle) (clojure.core/- (sin angle)) (sin angle) (cos angle)] 2 2)))
+  ([angle] (matrix [(cos angle) (- (sin angle)) (sin angle) (cos angle)] 2 2)))
 
 (defn row-minor [M row]
   (let [matrix-rows (apply vector (rows M))]
@@ -145,129 +164,28 @@
 (defn size [M] 
   (count (:data M)))
 
-(defmethod print-method :matrix [M writer] 
+(defmethod print-method :matrix [M writer]
   (let [largest-number (reduce max (map #(-> % str count) (:data M)))]
-    (doall
-      (for [row (range (:height M)) column (range (:width M))]
+      (doseq [row (range (:height M)) column (range (:width M))]
         (if (and (= (dec (:width M)) column) (< row (dec (:height M))))
           (print-method (format (str "%" largest-number "s\n") (str (get-cell M row column))) writer)
-          (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer))))))
+          (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer)
+          ))))
 
-(defmethod print-method :term [x ^Writer writer]
-  (.write writer
-    (str
-      (if (and (= (:coefficient x) 1) (not (empty? (:variables x))))
-        "" 
-        (:coefficient x))
-      (loop [stack (:variables x) result ""]
-        (if (empty? stack)
-          result
-          (recur (rest stack) (str result (first (first stack)) (if (= (second (first stack)) 1) "" (str "**" (second (first stack)))))))))))
+(defmethod add [nil :matrix] [x y] (matrix (map #(+ x %) (:data y)) (:height y) (:width y)))
+(defmethod add [:matrix nil] [x y] (matrix (map #(+ % y) (:data x)) (:height x) (:width x)))
+(defmethod add [:matrix :matrix] [x y] (matrix (map + (:data x) (:data y)) (:height x) (:width x)))
 
-(defmethod print-method :polynomial [x ^Writer writer]
-  (.write writer
-    (str
-      (loop [stack x result ""]
-        (if (empty? stack)
-          result
-          (recur 
-            (rest stack) 
-            (str 
-              result 
-              (if (.isEmpty result) 
-                "" 
-                " + ") 
-              (second (first stack)))))))))
+(defmethod negate :matrix [x] (println x) (matrix (map - (:data x)) (:height x) (:width x)))
 
-(defstruct transformation-struct :type :translation :rotation)
-
-(defn transformation [translation & rotation] 
-  (struct transformation-struct 
-    :transformation translation 
-    (if (empty? rotation) 
-      (scalar-matrix 2) 
-      (if (number? (first rotation))
-        (rotation-matrix (first rotation))
-        (first rotation)))))
-
-(def identity-transform 
-  (transformation 
-    (zero 2) 
-    (scalar-matrix 2)))
-
-(defmulti add (fn [x y] [(:type (meta x)) (:type (meta y))]))
-(defmethod add [nil :matrix] [x y] (matrix (map #(clojure.core/+ x %) (:data y)) (:height y) (:width y)))
-(defmethod add [:matrix nil] [x y] (matrix (map #(clojure.core/+ % y) (:data x)) (:height x) (:width x)))
-(defmethod add [:matrix :matrix] [x y] (matrix (map clojure.core/+ (:data x) (:data y)) (:height x) (:width x)))
-(defmethod add [:polynomial :polynomial] [x y] 
-  (apply polynomial (concat (vals x) (vals y))))
-(defmethod add [:polynomial nil] [x y] 
-  (apply polynomial (conj (vals x) (term y))))
-(defmethod add [nil :polynomial] [x y] 
-  (apply polynomial (cons (term x) (vals y))))
-(defmethod add :default [x y] (clojure.core/+ x y))
-  
-(defn +
-  ([] 0)
-  ([x] x)
-  ([x y] (add x y))
-  ([x y & more]
-    (reduce + (+ x y) more)))
-
-(defmulti subtract (fn [x y] [(:type (meta x)) (:type (meta y))]))
-(defmethod subtract [nil :matrix] [x y] (matrix (map #(clojure.core/- x %) (:data y)) (:height y) (:width y)))
-(defmethod subtract [:matrix nil] [x y] (matrix (map #(clojure.core/- % y) (:data x)) (:height x) (:width x)))
-(defmethod subtract [:matrix :matrix] [x y] (matrix (map clojure.core/- (:data x) (:data y)) (:height x) (:width x)))
-(defmethod subtract [:polynomial :polynomial] [x y] 
-    (apply polynomial (concat (vals x) (map negate-term (vals y)))))
-(defmethod subtract [:polynomial nil] [x y]
-  (apply polynomial (conj (vals x) (term (clojure.core/- y)))))
-(defmethod subtract [nil :polynomial] [x y]
-    (apply polynomial (cons (term x) (map negate-term (vals y)))))
-(defmethod subtract :default [x y] (clojure.core/- x y))
-
-(defmulti unary-subtract (fn [x] (:type (meta x))))
-(defmethod unary-subtract :matrix [x] (matrix (map clojure.core/- (:data x)) (:height x) (:width x)))
-(defmethod unary-subtract :default [x] (clojure.core/- x))
-(defmethod unary-subtract :polynomial [x]
-    (apply polynomial (map negate-term (vals x))))
-  
-(defn -
-  ([] 0)
-  ([x] (unary-subtract x))
-  ([x y] (subtract x y))
-  ([x y & more]
-    (reduce - (- x y) more)))
-
-(defmulti multiply (fn [x y] [(:type (meta x)) (:type (meta y))]))
-(defmethod multiply [nil :matrix] [x y] (matrix (map #(clojure.core/* x %) (:data y)) (:height y) (:width y)))
-(defmethod multiply [:matrix nil] [x y] (matrix (map #(clojure.core/* % y) (:data x)) (:height x) (:width x)))
-(defmethod multiply [:polynomial :polynomial] [x y] 
-  (apply polynomial
-    (for [x-term (vals x) y-term (vals y)]
-      (multiply-terms x-term y-term))))
-(defmethod multiply [:polynomial nil] [x y] 
-  (apply polynomial 
-    (for [x-term (vals x)]
-      (assoc x-term :coefficient (clojure.core/* (:coefficient x-term) y)))))
-(defmethod multiply [nil :polynomial] [x y] 
-  (apply polynomial 
-    (for [y-term (vals y)]
-      (assoc y-term :coefficient (clojure.core/* (:coefficient y-term) x)))))
+(defmethod multiply [nil :matrix] [x y] (matrix (map #(* x %) (:data y)) (:height y) (:width y)))
+(defmethod multiply [:matrix nil] [x y] (matrix (map #(* % y) (:data x)) (:height x) (:width x)))
 (defmethod multiply [:matrix :matrix] [x y] 
   (matrix 
     (for [column (columns y) row (rows x)]
-      (reduce clojure.core/+ (map clojure.core/* row column)))
+      (reduce + (map * row column)))
     (:height x)
     (:width y)))
-(defmethod multiply :default [x y] (clojure.core/* x y))
-
-(defn * 
-  ([] 1)
-  ([x] x)
-  ([x y] (multiply x y))
-  ([x y & more]
-    (reduce * (* x y) more)))
 
 (defn signature [permutation] 
   (let [inversions 
@@ -300,88 +218,10 @@
     (:height M)
     (:width M)))
 
-(defmulti unary-divide (fn [x] (:type (meta x))))
-(defmethod unary-divide :matrix [x] (clojure.core// (transpose (cofactor-matrix x)) (determinant x)))
-(defmethod unary-divide :default [x] (clojure.core// x))
+(defmethod invert :matrix [x] (/ (transpose (cofactor-matrix x)) (determinant x)))
 
-(defn / 
-  ([] 1)
-  ([x] (unary-divide x))
-  ([x y] (* x (clojure.core// y)))
-  ([x y & more]
-    (reduce / (/ x y) more)))
-
-(defn polynomial-less-than [x y]
-  ;(println "POLY" (meta x) "," (meta y))
-  (let [sorter 
-         (fn [x] (get (:variables x) epsilon 0))
-        x-terms
-         (sort-by sorter 
-           (filter #(or (empty? (:variables %)) (contains? (:variables %) 'epsilon)) 
-             (vals x)))
-        y-terms
-         (sort-by sorter 
-           (filter #(or (empty? (:variables %)) (contains? (:variables %) 'epsilon)) 
-                   (vals y)))]
-    ;(println x-terms y-terms)
-    (loop [x-stack x-terms y-stack y-terms]
-      (cond 
-        (and (empty? x-stack) (empty? y-stack))
-        false
-        (empty? x-stack)
-        (> (:coefficient (first y-stack)) 0)
-        (empty? y-stack)
-        (< (:coefficient (first x-stack)) 0)
-        true
-        (let [x-epsilon-power (get (:variables (first x-stack)) 'epsilon) y-epsilon-power (get (:variables (first y-stack)) 'epsilon)]
-          (cond
-            (= [false false] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (cond
-             (> (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-             false
-             (= (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-             (recur (rest x-stack) (rest y-stack))
-             (< (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-             true)
-            (= [true false] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (> (:coefficient (first y-stack)) 0)
-            (= [false true] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (< (:coefficient (first x-stack)) 0)
-            (= [true true] [(number? x-epsilon-power) (number? y-epsilon-power)])
-            (cond 
-              (= x-epsilon-power y-epsilon-power)
-              (cond
-               (> (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-               false
-               (= (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-               (recur (rest x-stack) (rest y-stack))
-               (< (:coefficient (first x-stack)) (:coefficient (first y-stack)))
-               true)
-              (< x-epsilon-power y-epsilon-power)
-              (cond 
-                (and (< (:coefficient (first x-stack)) 0) (< (:coefficient (first y-stack)) 0))
-                true 
-                (and (> (:coefficient (first x-stack)) 0) (< (:coefficient (first y-stack)) 0))
-                false
-                (and (< (:coefficient (first x-stack)) 0) (> (:coefficient (first y-stack)) 0))
-                true
-                (and (> (:coefficient (first x-stack)) 0) (> (:coefficient (first y-stack)) 0))
-                false)
-              (> x-epsilon-power y-epsilon-power)
-              (cond 
-                (and (< (:coefficient (first x-stack)) 0) (< (:coefficient (first y-stack)) 0))
-                false
-                (and (> (:coefficient (first x-stack)) 0) (< (:coefficient (first y-stack)) 0))
-                false
-                (and (< (:coefficient (first x-stack)) 0) (> (:coefficient (first y-stack)) 0))
-                true
-                (and (> (:coefficient (first x-stack)) 0) (> (:coefficient (first y-stack)) 0))
-                true))))))))
-(defn polynomial-greater-than [x y]
-  (polynomial-less-than (- x) (- y)))
-
-(defn x [a b] 
-  (- (* (:x a) (:y b)) (* (:x b) (:y a))))
+(defn X [a b] 
+  (- (* (get-cell a 0) (get-cell b 1)) (* (get-cell b 0) (get-cell a 1))))
 
 (defn length-squared [input] (reduce + (map #(* % %) (:data input))))
 (defn length [input] (sqrt (length-squared input)))
@@ -390,140 +230,190 @@
   (if (= (size input) 2)
     (unit (column (get-cell input 1) (- (get-cell input 0))))
     nil))
-(defn transform [trans point] 
-  (+ (:translation trans)
-    (* (:rotation trans) point)))
-(defn translate [original trans] 
-  (transformation (-> original :translation (+ trans)) (:rotation original)))
-(defn rotate [original point angle] 
-  (transformation (+ (* angle (-> original :translation (- point))) point) (-> original :rotation (* angle))))
+
+(defn polynomial [& terms]
+  (let [new-poly
+         (into {}
+           (filter #(not= (first (second %)) 0)
+             (apply merge-with #(cons (+ (first %1) (first %2)) (rest %1))
+                    (for [temp terms]
+                      (if (number? temp)
+                        {[1 1] [temp 1 1]}
+                        (if (= (count temp) 3)
+                          {(rest temp) temp}
+                          (if (number? (first temp))
+                            {[(second temp) 1] [(first temp) (second temp) 1]}
+                            {temp (cons 1 temp)})))))))]
+    (with-meta new-poly {:type :polynomial})))
+
+(defmethod print-method :polynomial [x writer]
+  (.write writer
+    (str
+      (loop [stack x result ""]
+        (if (empty? stack)
+          result
+          (recur 
+            (rest stack) 
+            (str 
+              result 
+              (if (.isEmpty result) 
+                "" 
+                " + ") 
+              (cond (= 1 (first (second (first stack))))
+                    ""
+                    (and (= -1 (first (second (first stack))))
+                         (not (number? (first (first (first stack))))))
+                    "-"
+                    :else
+                    (first (second (first stack))))
+              (if (number? (first (first (first stack))))
+                ""
+                (first (first (first stack))))
+              (if (= 1 (second (first (first stack))))
+                ""
+                (str "**" (second (first (first stack))))))))))))
+
+(defmethod add [:polynomial :polynomial] [x y] 
+           (apply polynomial (concat (vals x) (vals y))))
+(defmethod add [:polynomial nil] [x y] 
+           (apply polynomial (conj (vals x) [y 1 1])))
+(defmethod add [nil :polynomial] [x y] 
+           (apply polynomial (cons [x 1 1] (vals y))))
+
+(defmethod negate :polynomial [x]
+           (apply polynomial (map #(cons (- (first %)) (rest %)) (vals x))))
+
+(defmethod multiply [:polynomial nil] [x y]
+           (apply polynomial (map #(cons (* (first %) y) (rest %)) (vals x))))
+(defmethod multiply [nil :polynomial] [x y]
+           (apply polynomial (map #(cons (* (first %) x) (rest %)) (vals y))))
+
+(defn constant-part [input]
+  (apply polynomial (filter #(or (= (second %) 1) (= (second %) :epsilon)) (vals input))))
+
+(defmethod less-than [:polynomial :polynomial] [x y]
+           (let [max-power (apply max (concat (map second (keys (constant-part x)))
+                                              (map second (keys (constant-part y)))))
+                 ;q (println max-power)
+                 [x-terms y-terms] (map
+                                    (fn [input]
+                                      ;(println "starting" input)
+                                      (loop [stack (sort-by #(if (number? (second %)) 0 (last %))
+                                                            (vals (constant-part input)))
+                                             index (range (inc max-power))
+                                             accum []]
+                                        ;(println input (first stack) index)
+                                        (if (empty? index)
+                                          ;(do (println "return accum")
+                                            accum;)
+                                          (if (number? (second (first stack)))
+                                            (recur (rest stack) (rest index) (conj accum (first (first stack))))
+                                            (if (= (last (first stack)) (first index))
+                                              (recur (rest stack) (rest index) (conj accum (first (first stack))))
+                                              (recur stack (rest index) (conj accum 0)))))))
+                                    [x y])]
+             ;(println x-terms y-terms)
+             (loop [x-stack x-terms y-stack y-terms]
+               (if (empty? x-stack)
+                 false
+                 (cond
+                  (< (first x-stack) (first y-stack))
+                  true
+                  (> (first x-stack) (first y-stack))
+                  false
+                  (= (first x-stack) (first y-stack))
+                  (recur (rest x-stack) (rest y-stack)))))))
+
+(defmethod less-than [nil :polynomial] [x y] (< x (get y [1 1] 0)))
+(defmethod less-than [:polynomial nil] [x y] (< (get x [1 1] 0) y))
 
 (defstruct lcp-step :moved-out :equations)
 (defstruct linear-equation :left :right)
-
-(defn min-index [items]
-  ;(println "min-index123" (map meta items))
-  (loop [stack items position 0 minimum (polynomial (term positive-infinity))]
-    ;(println "gfsdgfd")
-    ;(println "gfdsag" (first stack))
-    (if (empty? stack)
-      position
-      (if (polynomial-less-than (first stack) minimum)
-        (recur (rest stack) (- (count items) (count stack)) (first stack))
-        (recur (rest stack) position minimum)))))
-
-(defn max-index [items]
-  ;(println "max-index" items)
-  (loop [stack items position 0 minimum (polynomial (term negative-infinity))]
-    ;(println (first stack))
-    (if (empty? stack)
-      position
-      (if (polynomial-greater-than (first stack) minimum)
-        (recur (rest stack) (- (count items) (count stack)) (first stack))
-        (recur (rest stack) position minimum)))))
-
-(defn constant-epsilon-part [input]
-  (let [temp (apply polynomial
-                    (filter #(or (empty? (:variables %)) (contains? (:variables %) 'epsilon)) (vals input)))]
-    temp))
-
-(defn collect [input]
-  (let [temp (loop [stack input accum {}]
-    (if (empty? stack)
-      accum
-      (recur (rest stack) (merge-with + accum {(first stack) 1}))))] (println temp) temp))
     
 (defn move-in [system moving-in]
-  ;(println "move-in" moving-in)
-  ;(doall (for [equation (:equations system)] (println equation)))
-  ;(doall (for [equation (:equations system)] (println (:constant (:right equation)))))
-  ;(println moving-in)
-  ;(doall (for [equation (:equations system)] (println (-> equation :right (get moving-in)))))
   (let [ratios 
          (for [equation (:equations system)]
-           (if (-> equation :right (get {moving-in 1}))
-             (/ (constant-epsilon-part (:right equation)) (:coefficient (get (:right equation) {moving-in 1})))
-             (polynomial (term (if (= moving-in ['z 0]) positive-infinity negative-infinity)))))
-        row (if (= moving-in ['z 0]) (min-index ratios) (max-index ratios))
-        ;temp (println row)
-        tt (doall (for [e (:equations system)] (println (:left e) "=" (:right e))))
-        ;rrr (println 'gggggggg)
-        ;t2          (println ((:equations system) row))
-        moving-out (first (keys (:variables (first (vals (:left ((:equations system) row)))))))
-        temp2 (println moving-in moving-out)
-        temp2 (println 'moving-out (:left ((:equations system) row)) (dissoc (:right ((:equations system) row)) {moving-in 1}))
+           (if (and (get (:right equation) [moving-in 1])
+                    (if (= moving-in [:z 0])
+                      true
+                      (> 0 (first (get (:right equation) [moving-in 1])))))
+               (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1])))
+             (polynomial (if (= moving-in [:z 0]) positive-infinity negative-infinity))))
+        row (if (= moving-in [:z 0])
+              (apply min-key #(nth ratios %) (range (count ratios)))
+              (apply max-key #(nth ratios %) (range (count ratios))))
+        moving-out (first (first (keys (:left ((:equations system) row)))))
         moving-right 
           (/
             (- 
               (:left ((:equations system) row))
-              (dissoc (:right ((:equations system) row)) {moving-in 1}))
-            (:coefficient (get (:right ((:equations system) row)) {moving-in 1})))
-        temp3 (println moving-right)
-        moving-left (polynomial (term moving-in))
-        ffffffff (println "New equations")
+              (dissoc (:right ((:equations system) row)) [moving-in 1]))
+            (first (get (:right ((:equations system) row)) [moving-in 1])))
+        moving-left (polynomial [1 moving-in 1])
         new-equations
           (apply vector
-            (for [equation (concat (subvec (:equations system) 0 row) [(struct linear-equation moving-left moving-right)] (subvec (:equations system) (inc row)))]
-              (if (contains? (:right equation) {moving-in 1})
+                 (for [equation (concat (subvec (:equations system) 0 row)
+                                        [(struct linear-equation moving-left moving-right)]
+                                        (subvec (:equations system) (inc row)))]
+              (if (contains? (:right equation) [moving-in 1])
                 (struct linear-equation 
                         (:left equation)
-                        (+ (dissoc (:right equation) {moving-in 1}) (* (:coefficient (get (:right equation) {moving-in 1})) moving-right)))
+                        (+ (dissoc (:right equation) [moving-in 1])
+                           (* (first (get (:right equation) [moving-in 1])) moving-right)))
                 equation)))]
-    (println "lcp-step done")
     (struct lcp-step moving-out new-equations)))
     
 
 (defn solve-lcp [M q]
   (let [raw-equations
          (struct lcp-step
-                 ['w 0]    
+                 [:w 0]    
                  (apply vector
                         (for [row (range 1 (inc (:height M)))] 
                           (struct linear-equation 
-                                  (polynomial (term 1 ['w row]))
+                                  (polynomial [1 [:w row]])
                                   (apply polynomial
-                                         (term (get-cell q (dec row)))
-                                         (term 1 ['z 0])
+                                         (get-cell q (dec row))
+                                         [1 [:z 0]]
                                          (for [column (range 1 (inc (:width M))) :when (not= (get-cell M (dec row) (dec column)) 0)]
-                                           (term (get-cell M (dec row) (dec column)) ['z column])))))))
-        counting (collect (map #(:coefficient (get % {})) (map :right (:equations raw-equations))))
-        ;qqq (println (map meta (keys counting)))
-        ;gfds (println "HELLO" (= 1 (get counting (apply min (keys counting)))))
+                                           [(get-cell M (dec row) (dec column)) [:z column]]))))))
+        counting (loop [stack (map #(first (get % [1 1])) (map :right (:equations raw-equations)))
+                        accum {}]
+                   (if (empty? stack)
+                     accum
+                     (recur (rest stack) (merge-with + accum {(first stack) 1}))))
         initial-equations
         (if (= 1 (get counting (apply min (keys counting))))
           raw-equations
           (struct lcp-step
-                  ['w 0]
+                  [:w 0]
                   (loop [stack (:equations raw-equations) accum [] index 1]
-                    ;(println 'epsilon index (term 'epsilon index))
                     (if (empty? stack)
                       accum
                       (recur
                        (rest stack)
-                       (conj accum (struct linear-equation (:left (first stack)) (+ (:right (first stack)) (polynomial (term 'epsilon index)))))
+                       (conj accum (struct linear-equation
+                                           (:left (first stack))
+                                           (+ (:right (first stack)) (polynomial [:epsilon index]))))
                        (inc index))))))
-        ;gfds (println "HELLO")
-        ;temp (doall (for [e (:equations initial-equations)] (println (:left e) "=" (:right e))))
         lcp-solution
          (loop [equations initial-equations]
-           (if (= (:moved-out equations) ['z 0])
+           (if (= (:moved-out equations) [:z 0])
              equations
-             (recur (move-in equations (if (= (first (:moved-out equations)) 'w) 
-                                         ['z (second (:moved-out equations))]
-                                         ['w (second (:moved-out equations))])))))
+             (recur (move-in equations (if (= (first (:moved-out equations)) :w) 
+                                         [:z (second (:moved-out equations))]
+                                         [:w (second (:moved-out equations))])))))
         subscript-sort
           (fn [equation]
-            (first (first (keys (:left equation)))))]
-    (println "lcp-solved")
-    (doall (for [equation (:equations lcp-solution)] (println equation)))
-    (println "lcp-solved")
-    {'w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (keys (:left equation)))) 'w)
-            (get (:right equation) {})
+            (second (first (first (keys (:left equation))))))]
+    (doseq [x (:equations initial-equations)] (println (:left x) '= (:right x)))
+    {:w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) :w)
+            (first (get (:right equation) [1 1]))
             0))
-     'z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (keys (:left equation)))) 'z)
-            (get (:right equation) {})
+     :z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) :z)
+            (first (get (:right equation) [1 1]))
             0))}))
     
   
@@ -531,17 +421,6 @@
   (let [M (stack (append S (transpose A)) (append (- A) (zero (:height A))))
         q (stack (- c) b)]
     (take (:width A) (:z (solve-lcp M q)))))
-
-(def A (matrix [-1 2 3 1 -1 1] 3 2))
-(def b (matrix [2 -1 3]))
-(def c (matrix [1 1]))
-(def M (stack (append (zero 2 2) (transpose A)) (append (- A) (zero 3 3))))
-(def q (stack (- c) b))
-
-;(println "Hello")
-;(println A)
-;(println q)
-(println (solve-lcp M q))
 
 (comment
   (let [s (* (transpose a) a)
@@ -553,4 +432,26 @@
         M (-> S (append (transpose A0)) (stack (append (- A0) (zero-matrix (rows A0)))))
         q (stack (- c0) b0)]))
 
-23
+(defstruct transformation-struct :type :translation :rotation)
+
+(defn transformation [translation & rotation] 
+  (struct transformation-struct 
+    :transformation translation 
+    (if (empty? rotation) 
+      (scalar-matrix 2) 
+      (if (number? (first rotation))
+        (rotation-matrix (first rotation))
+        (first rotation)))))
+
+(def identity-transform 
+  (transformation 
+    (zero 2) 
+    (scalar-matrix 2)))
+
+(defn transform [trans point] 
+  (+ (:translation trans)
+    (* (:rotation trans) point)))
+(defn translate [original trans] 
+  (transformation (-> original :translation (+ trans)) (:rotation original)))
+(defn rotate [original point angle] 
+  (transformation (+ (* angle (-> original :translation (- point))) point) (-> original :rotation (* angle))))

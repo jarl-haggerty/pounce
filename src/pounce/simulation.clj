@@ -106,7 +106,4 @@
 (defmethod render :simulation [sim g]
   (.setColor g Color/black)
   (.fillRect g 0 0 (-> g .getClipBounds .getWidth) (-> g .getClipBounds .getHeight))
-  (loop [stack (vals (:bodies sim))] 
-    (when-not (empty? stack) 
-      (render (first stack) g) 
-      (recur (rest stack)))))
+  (doseq [x (vals (:bodies sim))] (render x g)))
