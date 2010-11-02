@@ -4,13 +4,19 @@
 (defstruct matrix-struct :data :height :width)
 
 (defn matrix 
-  ([data height width] 
-    (with-meta (struct matrix-struct (if (vector? data) data (apply vector data)) height width) {:type :matrix}))
+  ([data height width]
+     (if (sequential? data)
+       (with-meta (struct matrix-struct (if (vector? data) data (apply vector data)) height width) {:type :matrix})
+       (matrix [data height width] 3 1)))
+  ([one two] (matrix [one two] 2 1))
   ([data]
-     (matrix data (count data) 1)))
-
-(defn column [& data]
-  (matrix data (count data) 1))
+     (if (sequential? data)
+       (if (sequential? (first data))
+         (matrix (apply concat data) (count (first data)) (count data))
+         (matrix data (count data) 1))
+       (matrix [data] 1 1)))
+  ([one two three & data]
+     (matrix (concat [one two three] data) (+ (count data) 3) 1)))
 
 (defn zero
   ([height] (zero height 1))
@@ -143,13 +149,13 @@
 
 (defn X [a b] 
   (- (* (get-cell a 0) (get-cell b 1)) (* (get-cell b 0) (get-cell a 1))))
-(defn dot [a b] (- (+ (map * (:data a) (:data b))) 1))
+(defn dot [a b] (reduce + (map * (:data a) (:data b))))
 (defn length-squared [input] (dot input input))
 (defn length [input] (sqrt (length-squared input)))
 (defn unit [input] (/ input (length input)))
 (defn normal [input] 
   (if (= (size input) 2)
-    (unit (column (get-cell input 1) (- (get-cell input 0))))
+    (unit (matrix (get-cell input 1) (- (get-cell input 0))))
     nil))
 
 (defn x [M] (get-cell M 0))
@@ -159,4 +165,4 @@
 (defstruct transform-struct :translation :rotation)
 (defn transform
   ([x y angle] (transform (matrix [x y] 2 1) angle))
-  ([displacement angle] (with-meta (struct transform-struct displacement (rotation theta)) {:type :transform})))
+  ([displacement angle] (with-meta (struct transform-struct displacement (rotation angle)) {:type :transform})))

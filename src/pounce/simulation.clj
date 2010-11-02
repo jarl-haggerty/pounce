@@ -70,31 +70,24 @@
                               :force 
                               (+ (:force ((first stack) @(:actions sim))) (:gravity sim)))
                             (struct action (:gravity sim) 0 (zero 2) 0 nil))))))
-          new-bodies (apply-actions (:bodies sim) actions delta)]
-      ;(loop [stack actions] (when-not (empty? stack) (println (first stack) (:linearMomentum ((first (first stack)) (:bodies sim)))) (recur (rest stack)))) 
-      (loop [stack1 (vals new-bodies)]
-        (when-not (empty? stack1)
-          (loop [stack2 (rest stack1)]
-            (when-not (empty? stack2)
-              (let [center1 (transform (:transformation (first stack1)) (:center (first stack1)))
-                    center2 (transform (:transformation (first stack2)) (:center (first stack2)))]
-                (when (< (length (- center1 center2))
-                         (+ (:radius (first stack1)) (:radius (last stack2))))
-                  (let [contact (collision (first stack1) (first stack2) delta)]
-                    (loop [stack contact]
-                      (when-not (empty? stack)
-                        (cond
-                          (= (:category (first stack)) :EdgeEdge)
-                          (loop [l @(:contact-listeners sim)] (when-not (empty? l) ((first l) contact) (recur (rest l))))
-                          (= (:category (first stack)) :EdgeVertex)
-                          ;(System/exit 0)
-                          (loop [l @(:contact-listeners sim)] (when-not (empty? l) ((first l) contact) (recur (rest l))))
-                          (= (:category (first stack)) :VertexVertex)
-                          (loop [l @(:contact-listeners sim)] (when-not (empty? l) ((first l) contact) (recur (rest l)))))
-                        (recur (rest stack)))))
-                      ))
-              (recur (rest stack2))))
-          (recur (rest stack1))))
+          new-bodies (apply-actions (:bodies sim) actions delta)
+      ;(loop [stack actions] (when-not (empty? stack) (println (first
+      ;stack) (:linearMomentum ((first (first stack)) (:bodies sim))))
+                                        ;(recur (rest stack)))) 
+          contacts
+          (loop [stack1 (vals new-bodies) accum []]
+            (if (empty? stack1)
+              accum
+              (recur (rest stack1)
+                     (loop [stack2 (rest stack1) accum2 accum]
+                       (if (empty? stack2)
+                         accum2
+                         (let [center1 (transform (:transformation (first stack1)) (:center (first stack1)))
+                               center2 (transform (:transformation (first stack2)) (:center (first stack2)))]
+                           (if (< (length (- center1 center2))
+                                  (+ (:radius (first stack1)) (:radius (last stack2))))
+                             (recur (rest stack1) (concat accum (collision (first stack1) (first stack2) delta)))
+                             (recur (rest stack1) accum))))))))]
       (let [final-bodies 
             (loop [stack new-bodies accum {}] 
               (if (empty? stack) 
