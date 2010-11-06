@@ -27,7 +27,7 @@
         new-equations
           (apply vector
                  (for [equation (concat (subvec (:equations system) 0 row)
-                                        [(struct linear-equation moving-left moving-right)]
+                                        [{:left moving-left :right moving-right}]
                                         (subvec (:equations system) (inc row)))]
               (if (contains? (:right equation) [moving-in 1])
                 {:left (:left equation)
@@ -42,14 +42,13 @@
         {:moved-out [:w 0]
          :equations (apply vector
                            (for [row (range 1 (inc (:height M)))]
-                             (struct linear-equation 
-                                     (polynomial [1 [:w row]])
-                                     (apply polynomial
+                             {:left (polynomial [1 [:w row]])
+                              :right (apply polynomial
                                             (get-cell q (dec row))
                                             [1 [:z 0]]
                                             (for [column (range 1 (inc (:width M)))
                                                   :when (not= (get-cell M (dec row) (dec column)) 0)]
-                                              [(get-cell M (dec row) (dec column)) [:z column]])))))}
+                                              [(get-cell M (dec row) (dec column)) [:z column]]))}))}
         counting (loop [stack (map #(first (get % [1 1])) (map :right (:equations raw-equations)))
                         accum {}]
                    (if (empty? stack)
@@ -58,16 +57,15 @@
         initial-equations
         (if (= 1 (get counting (apply min (keys counting))))
           raw-equations
-          (struct lcp-step
-                  [:w 0]
-                  (loop [stack (:equations raw-equations) accum [] index 1]
-                    (if (empty? stack)
-                      accum
-                      (recur
-                       (rest stack)
-                       (conj accum {:left (:left (first stack))
-                                    :right (add (:right (first stack)) (polynomial [:epsilon index]))})
-                       (inc index))))))
+          {:moved-out [:w 0]
+           :equations (loop [stack (:equations raw-equations) accum [] index 1]
+                        (if (empty? stack)
+                          accum
+                          (recur
+                           (rest stack)
+                           (conj accum {:left (:left (first stack))
+                                        :right (add (:right (first stack)) (polynomial [:epsilon index]))})
+                           (inc index))))})
         lcp-solution
          (loop [equations initial-equations]
            (if (= (:moved-out equations) [:z 0])

@@ -90,5 +90,5 @@
                   (= (first x-stack) (first y-stack))
                   (recur (rest x-stack) (rest y-stack)))))))
 
-(defmethod less-than [nil :polynomial] [x y] (less-method (polynomial x) y))
-(defmethod less-than [:polynomial nil] [x y] (less-method x (polynomial y)))
+(defmethod less-than [nil :polynomial] [x y] (less-than (polynomial x) y))
+(defmethod less-than [:polynomial nil] [x y] (less-than x (polynomial y)))
