@@ -1,7 +1,9 @@
 (ns pounce.simulation
   (:import java.awt.Color)
-  (:use (pounce body math render)))
-
+  (:use pounce.body
+	pounce.math.math 
+	pounce.render))
+(comment
 (defstruct simulation :type :bodies :gravity :actions :contact-listeners)
 (defstruct action :force :torque :linear-impulse :angular-impulse :insertion)
 
@@ -50,7 +52,8 @@
         (recur 
           (rest bodies) 
           (dissoc actions where) 
-          (assoc accum where (integrate-derivatives who linear-impulse angular-impulse)) delta))))
+        (assoc accum where (integrate-derivatives who linear-impulse angular-impulse)) delta)
+      )))
   ([bodies actions delta] 
     ;(println "Enter")
     ;(println actions)
@@ -100,3 +103,4 @@
   (.setColor g Color/black)
   (.fillRect g 0 0 (-> g .getClipBounds .getWidth) (-> g .getClipBounds .getHeight))
   (doseq [x (vals (:bodies sim))] (render x g)))
+)

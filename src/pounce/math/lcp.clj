@@ -1,5 +1,5 @@
 (ns pounce.math.lcp
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key])
+  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use pounce.math.polynomial
         pounce.math.matrix
         pounce.math.math))
@@ -8,12 +8,12 @@
   (let [ratios 
          (for [equation (:equations system)]
            (if (and (get (:right equation) [moving-in 1])
-                    (if (= moving-in [:z 0])
+                    (if (= moving-in ['z 0])
                       true
                       (> 0 (first (get (:right equation) [moving-in 1])))))
              (/ (constant-part (:right equation)) (first (get (:right equation) [moving-in 1])))
-             (polynomial (if (= moving-in [:z 0]) positive-infinity negative-infinity))))
-        row (if (= moving-in [:z 0])
+             (polynomial (if (= moving-in ['z 0]) positive-infinity negative-infinity))))
+        row (if (= moving-in ['z 0])
               (apply min-key #(nth ratios %) (range (count ratios)))
               (apply max-key #(nth ratios %) (range (count ratios))))
         moving-out (first (first (keys (:left ((:equations system) row)))))
@@ -27,7 +27,7 @@
         new-equations
           (apply vector
                  (for [equation (concat (subvec (:equations system) 0 row)
-                                        [(struct linear-equation moving-left moving-right)]
+                                        [{:left moving-left :right moving-right}]
                                         (subvec (:equations system) (inc row)))]
               (if (contains? (:right equation) [moving-in 1])
                 {:left (:left equation)
@@ -39,17 +39,16 @@
 
 (defn solve-lcp [M q]
   (let [raw-equations
-        {:moved-out [:w 0]
+        {:moved-out ['w 0]
          :equations (apply vector
                            (for [row (range 1 (inc (:height M)))]
-                             (struct linear-equation 
-                                     (polynomial [1 [:w row]])
-                                     (apply polynomial
+                             {:left (polynomial [1 ['w row]])
+                              :right (apply polynomial
                                             (get-cell q (dec row))
-                                            [1 [:z 0]]
+                                            [1 ['z 0]]
                                             (for [column (range 1 (inc (:width M)))
                                                   :when (not= (get-cell M (dec row) (dec column)) 0)]
-                                              [(get-cell M (dec row) (dec column)) [:z column]])))))}
+                                              [(get-cell M (dec row) (dec column)) ['z column]]))}))}
         counting (loop [stack (map #(first (get % [1 1])) (map :right (:equations raw-equations)))
                         accum {}]
                    (if (empty? stack)
@@ -58,32 +57,31 @@
         initial-equations
         (if (= 1 (get counting (apply min (keys counting))))
           raw-equations
-          (struct lcp-step
-                  [:w 0]
-                  (loop [stack (:equations raw-equations) accum [] index 1]
-                    (if (empty? stack)
-                      accum
-                      (recur
-                       (rest stack)
-                       (conj accum {:left (:left (first stack))
-                                    :right (add (:right (first stack)) (polynomial [:epsilon index]))})
-                       (inc index))))))
+          {:moved-out ['w 0]
+           :equations (loop [stack (:equations raw-equations) accum [] index 1]
+                        (if (empty? stack)
+                          accum
+                          (recur
+                           (rest stack)
+                           (conj accum {:left (:left (first stack))
+                                        :right (add (:right (first stack)) (polynomial ['epsilon index]))})
+                           (inc index))))})
         lcp-solution
          (loop [equations initial-equations]
-           (if (= (:moved-out equations) [:z 0])
+           (if (= (:moved-out equations) ['z 0])
              equations
-             (recur (move-in equations (if (= (first (:moved-out equations)) :w) 
-                                         [:z (second (:moved-out equations))]
-                                         [:w (second (:moved-out equations))])))))
+             (recur (move-in equations (if (= (first (:moved-out equations)) 'w) 
+                                         ['z (second (:moved-out equations))]
+                                         ['w (second (:moved-out equations))])))))
         subscript-sort
           (fn [equation]
             (second (first (first (keys (:left equation))))))]
-    {:w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (first (keys (:left equation))))) :w)
+    {'w (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) 'w)
             (first (get (:right equation) [1 1]))
             0))
-     :z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
-          (if (= (first (first (first (keys (:left equation))))) :z)
+     'z (for [equation (sort-by subscript-sort (:equations lcp-solution))]
+          (if (= (first (first (first (keys (:left equation))))) 'z)
             (first (get (:right equation) [1 1]))
             0))}))
     
@@ -91,7 +89,7 @@
 (defn solve-convex-quadratic-problem [S A b c]
   (let [M (stack (append S (transpose A)) (append (- A) (zero (:height A))))
         q (stack (- c) b)]
-    (take (:width A) (:z (solve-lcp M q)))))
+    (take (:width A) ('z (solve-lcp M q)))))
 
 (comment
   (let [s (* (transpose a) a)
@@ -102,3 +100,5 @@
         constraints (fn [x] (and (<= (* -1 A x) b) (<= (* A x) (- c b))))
         M (-> S (append (transpose A0)) (stack (append (- A0) (zero-matrix (rows A0)))))
         q (stack (- c0) b0)]))
+(println )
+

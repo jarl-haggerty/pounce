@@ -7,12 +7,12 @@
            java.awt.Point
            java.awt.Color
            java.awt.event.ActionListener)
-  (:use pounce.math
+  (:use pounce.math.math
         pounce.simulation
         pounce.body
         pounce.shape
         pounce.render))
-
+(comment
 (set! *warn-on-reflection* true)
 
 (def object1 
@@ -87,5 +87,5 @@
     (.stop update-timer)))
 
 
-
+)
 

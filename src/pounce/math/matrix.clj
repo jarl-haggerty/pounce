@@ -1,5 +1,5 @@
 (ns pounce.math.matrix
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key])
+  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use pounce.math.math))
 
 (defn matrix
@@ -19,22 +19,22 @@
 
 (defn zero
   ([height] (zero height 1))
-  ([height width] (matrix (map #(do % 0) (range (* height width))) height width)))
+  ([height width] (matrix (repeat (* height width) 0) height width)))
 
-(defn scalar-matrix
-  ([size scale] (matrix (map #(if (= (/ % size) (mod % size)) scale 0) (range (* size size))) size size))
-  ([size] (scalar-matrix size 1)))
+(defn scalar
+  ([size scale] (matrix (map #(if (= (int (/ % size)) (mod % size)) scale 0) (range (* size size))) size size))
+  ([size] (scalar size 1)))
 
 (defn component
-  ([length where scale] (matrix (map #(if (= % where) scale 0) (range length)) length 1))
-  ([length where] (component where 1)))
+  ([size where scale] (matrix (map #(if (= % where) scale 0) (range size)) size 1))
+  ([size where] (component size where 1)))
 
 (defn get-cell 
-  ([M position] (if (= (:height M) 1) (get-cell M 0 position) (get-cell M position 0)))
+  ([M position] (get-cell M position 0))
   ([M row column] ((:data M) (+ row (* (:height M) column)))))
 
 (defn set-cell
-  ([M position value] (if (= (:height M) 1) (set-cell M 0 position value) (set-cell M position 0 value)))
+  ([M position value] (set-cell M position 0 value))
   ([M row column value] (matrix (assoc (:data M) (+ row (* (:height M) column)) value) (:height M) (:width M))))
 
 (defn x [M] (get-cell M 0))
@@ -69,36 +69,39 @@
 (defn transpose [M] 
   (matrix (flatten (rows M)) (:width M) (:height M)))
 
-(defn rotation-matrix
-  ([angle] (matrix [(cos angle) (- (sin angle)) (sin angle) (cos angle)] 2 2)))
-
 (defn row-minor [M row]
-  (let [matrix-rows (apply vector (rows M))]
-    (matrix (apply interleave (concat (subvec matrix-rows 0 row) (subvec matrix-rows (inc row)))) (dec (:height M)) (:width M))))
+  (if (= (:height M) 1)
+    nil
+    (let [matrix-rows (apply vector (rows M))]
+      (matrix (apply interleave (concat (subvec matrix-rows 0 row) (subvec matrix-rows (inc row)))) (dec (:height M)) (:width M)))))
 
 (defn column-minor [M col]
-  (let [matrix-columns (apply vector (columns M))]
-    (matrix (apply concat (concat (subvec matrix-columns 0 col) (subvec matrix-columns (inc col)))) (:height M) (dec (:width M)))))
+  (if (= (:width M) 1)
+    nil
+    (let [matrix-columns (apply vector (columns M))]
+      (matrix (apply concat (concat (subvec matrix-columns 0 col) (subvec matrix-columns (inc col)))) (:height M) (dec (:width M))))))
 
 (defn minor [M row column]
-  (-> M (row-minor row) (column-minor column)))
+  (if (or (= 1 (:height M)) (= 1 (:width M)))
+    nil
+    (-> M (row-minor row) (column-minor column))))
 
 (defn size [M] 
   (count (:data M)))
-
-(defmethod print-method :matrix [M writer]
-  (let [largest-number (reduce max (map #(-> % str count) (:data M)))]
-      (doseq [row (range (:height M)) column (range (:width M))]
-        (if (and (= (dec (:width M)) column) (< row (dec (:height M))))
-          (print-method (format (str "%" largest-number "s\n") (str (get-cell M row column))) writer)
-          (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer)
-          ))))
+(comment
+  (defmethod print-method :matrix [M writer]
+             (let [largest-number (reduce max (map #(-> % str count) (:data M)))]
+               (doseq [row (range (:height M)) column (range (:width M))]
+                 (if (and (= (dec (:width M)) column) (< row (dec (:height M))))
+                   (print-method (format (str "%" largest-number "s\n") (str (get-cell M row column))) writer)
+                   (print-method (format (str "%" largest-number "s ") (str (get-cell M row column))) writer)
+                   )))))
 
 (defmethod add [nil :matrix] [x y] (matrix (map #(+ x %) (:data y)) (:height y) (:width y)))
 (defmethod add [:matrix nil] [x y] (matrix (map #(+ % y) (:data x)) (:height x) (:width x)))
 (defmethod add [:matrix :matrix] [x y] (matrix (map + (:data x) (:data y)) (:height x) (:width x)))
 
-(defmethod negate :matrix [x] (println x) (matrix (map - (:data x)) (:height x) (:width x)))
+(defmethod negate :matrix [x] (matrix (map - (:data x)) (:height x) (:width x)))
 
 (defmethod multiply [nil :matrix] [x y] (matrix (map #(* x %) (:data y)) (:height y) (:width y)))
 (defmethod multiply [:matrix nil] [x y] (matrix (map #(* % y) (:data x)) (:height x) (:width x)))
@@ -109,24 +112,16 @@
     (:height x)
     (:width y)))
 (defmethod multiply [:transform :matrix] [x y]
-           (matrix (take 2 (:data (* (stack (append (:rotation) (:translation x)) (matrix [0 0 1] 1 2))
-                                            (stack y (matrix [1] 1 1)))))
-                   2 1))
+           (matrix (take 2 (:data (* (stack (append (:rotation x) (:translation x)) (matrix [0 0 1] 1 3))
+                                            (stack y (matrix 1)))))))
 
-(defn signature [permutation] 
-  (let [inversions 
-         (for [x permutation]
-           (for [y permutation]
-             (if (> x y) 1 0)))]
-    (if (even? (apply + inversions)) 1 -1)))
-
-(defn permutations [input]
-  (loop [current (map list input)]
-    (if (= (count (first current)) (count input))
-      current
-      (recur
-        (for [c current i (reduce disj (set input) c)]
-          (cons i c))))))
+(defmethod equal [:matrix :matrix] [x y] (and (= (:width x) (:width y))
+                                              (= (:height x) (:height y))
+                                              (every? identity (map eps= (:data x) (:data y)))))
+;(defmethod equal [:matrix :float] [x y] (every? identity (map eps= (:data x) (:data y))))
+;(defmethod equal [:matrix :integer] [x y] (every? identity (map eps= (:data x) (:data y))))
+;(defmethod equal [:matrix :matrix] [x y] (every? identity (map eps= (:data x) (:data y))))
+;(defmethod equal [:matrix :matrix] [x y] (every? identity (map eps= (:data x) (:data y))))
 
 (defn determinant [M]
   (if (= (:height M) (:width M))
@@ -134,21 +129,16 @@
         [1 1] (get-cell M 0 0)
         [2 2] (- (* (get-cell M 0 0) (get-cell M 1 1)) (* (get-cell M 0 1) (get-cell M 1 0)))
         (reduce +
-                (map #(* (pow -1 (+ 2 %)))
-                     (map #(determinant (minor M 0 %)) (range (:width M))))))
+                (map #(* (determinant (minor M 0 %)) (pow -1 (+ 2 %))) (range (:width M)))))
     0))
 
-;(defmethod invert :matrix [x] (/ (transpose (cofactor-matrix x)) (determinant x)))
-
 (defn cross [a b] (determinant (append a b)))
-(defn dot [a b] (* (transpose a) b))
+(defn dot [a b] (get-cell (* (transpose a) b) 0))
 (defn length-squared [input] (dot input input))
 (defn length [input] (sqrt (length-squared input)))
 (defn unit [input] (/ input (length input)))
 (defn normal [input] 
-  (if (= (size input) 2)
-    (unit (matrix (get-cell input 1) (- (get-cell input 0))))
-    nil))
+    (unit (matrix (y input) (- (x input)))))
 
 (defn rotation [theta] (matrix [(cos theta) (sin theta) (- (sin theta)) (cos theta)] 2 2))
 (defn transform

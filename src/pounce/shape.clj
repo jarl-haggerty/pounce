@@ -1,21 +1,24 @@
 (ns pounce.shape
   (:import java.awt.Color)
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key])
+  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use pounce.math.math
         pounce.math.matrix
         pounce.render))
 
-(defn polygon [mass & points]
+(defn polygon [raw-mass & raw-points]
+  (let [[mass points] (if (number? raw-mass) [raw-mass raw-points] [positive-infinity (cons raw-mass raw-points)])]
     (with-meta {:center (/ (reduce #(+ %1 %2) points) (count points))
                 :mass mass
                 :points points
                 :normals (map #(normal (- %1 %2)) (conj (vec (rest points)) (first points)) points)}
-      {:type :polygon}))
+      {:type :polygon})))
 
-(defn circle [mass center radius]
-  (with-meta  {:center center :mass mass :radius radius} {:type :circle}))
+(defn circle
+  ([center radius] (circle positive-infinity center radius))
+  ([mass center radius]
+     (with-meta  {:center center :mass mass :radius radius} {:type :circle})))
 
-(defmulti normals (fn [shape & args] #(:type (meta shape))))
+(defmulti normals (fn [shape & _] (:type (meta shape))))
 
 (defmethod normals :polygon
   ([shape] (map #(hash-map :normal %1 :side [%2 %3])
@@ -23,36 +26,61 @@
                 (:points shape)
                 (conj (vec (rest (:points shape))) (first (:points shape)))))
   ([shape direction]
-     (filter #(<= 0 (dot (normals shape) direction)))))
+     (filter #(<= 0 (dot direction (:normal %))) (normals shape))))
 
 (defmethod normals :circle [shape direction]
-           [{:normal (unit direction) :side 0}])
+           (let [direction-unit (unit direction)
+                 side (* (:radius shape) direction-unit)]
+             [{:normal direction-unit :side [side side]}]))
 
 (defmulti projection (fn [shape plane] (:type (meta shape))))
 
 (defmethod projection :polygon [shape plane]
            (let [points (circular-vector (:points shape))
-                 search (fn [condition]
+                 front-point-index (apply min-key #(dot plane (points %)) (range (count (:points shape))))
+                 front-point (points front-point-index)
+                 front [(dot plane front-point)
+                        (condp = (dot plane front-point)
+                          (dot plane (points (inc front-point-index)))
+                          [front-point (points (inc front-point-index))]
+                          (dot plane (points (dec front-point-index)))
+                          [(points (dec front-point-index)) front-point]
+                          [front-point])]
+                 back-point-index (apply max-key #(dot plane (points %)) (range (count (:points shape))))
+                 back-point (points back-point-index)
+                 back [(dot plane back-point)
+                        (condp = (dot plane back-point)
+                          (dot plane (points (inc back-point-index)))
+                          [back-point (points (inc back-point-index))]
+                          (dot plane (points (dec back-point-index)))
+                          [(points (dec back-point-index)) back-point]
+                          [back-point])]]
+             {:start (first front) :stop (first back) :start-points (second front) :stop-points (second back)}))
+
+(comment
+  (defmethod projection :polygon [shape plane]
+             (let [points (circular-vector (:points shape))
+                   search (fn [condition]
                             (loop [accum 0 step (ceil (/ (count (:points shape)) 2)) from nil]
+                              (if (= <= condition) (println (points accum) accum step from))
                               (condp condition (dot plane (points accum))
-                                
+                              
                                 (dot plane (points (+ accum step)))
-                                (if (= from (+ accum step))
-                                  [(dot plane (points (+ accum step)))
-                                   (points from) (points accum)]
-                                  (recur (+ accum step) (ceil (/ step 2)) accum))
+                                (recur (+ accum step) (ceil (/ step 2)) accum)
 
                                 (dot plane (points (- accum step)))
-                                (if (= from (- accum step))
-                                  [(dot plane (points (- accum step)))
-                                   (points from) (points accum)]
-                                  (recur (- accum step) (ceil (/ step 2)) accum))
-                                
+                                (recur (- accum step) (ceil (/ step 2)) accum)
+                              
                                 [(dot plane (points accum))
-                                 (points accum)])))
-                 front (search <= shape plane)
-                 back (search >= shape plane)]
-           {:start (first front) :stop (first back) :start-points (rest front) :stop-points (rest back)}))
+                                 (condp = (dot plane (points accum))
+                                     (dot plane (points (inc accum)))
+                                   [(points accum) (points (inc accum))]
+                                   (dot plane (points (dec accum)))
+                                   [(points (dec accum)) (points accum)]
+                                   [(points accum)])])))
+                   front (search <)
+                   back (search >)]
+               {:start (first front) :stop (first back) :start-points (second front) :stop-points (second back)})))
 
 (defmethod projection :circle [shape plane]
            (let [plane-unit (unit plane)]
@@ -64,7 +92,7 @@
 (defmulti farside-distance (fn [shape origin] (:type (meta shape))))
 
 (defmethod farside-distance :polygon [shape origin]
-           (apply max (map #(length (- % origin)))))
+           (apply max (map #(length (- % origin)) (:points shape))))
 
 (defmethod farside-distance :circle [shape origin]
            (+ (length (- (:center shape) origin)) (:radius shape)))
@@ -82,11 +110,17 @@
                       (:radius shape)
                       (:radius shape)))
 
-(defmethod multiply [:transform :polynomial] [x y]
+(defmethod equal [:shape :shape] [x y]
+           (and (= (:center x) (:center y))
+                (= (:mass x) (:mass y))
+                (seq= (:points x) (:points y))
+                (seq= (:normals x) (:normals y))))
+
+(defmethod multiply [:transform :polygon] [x y]
            (apply polygon (:mass y) (map #(* x %) (:points y))))
 
 (defmethod multiply [:transform :circle] [x y]
-           (apply polygon (:mass y) (* x (:center y)) (:radius y)))
+           (circle (:mass y) (* x (:center y)) (:radius y)))
 
 (defmethod add [:polygon :matrix] [x y] (apply polygon (:mass x) (map #(+ y %) (:points x))))
 (defmethod add [:circle :matrix] [x y] (apply polygon (:mass x) (+ y (:center x)) (:radius x)))
