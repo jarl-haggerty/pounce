@@ -7,11 +7,11 @@
 (def *eps* 1e-10)
 
 (defn is-infinite [input] (Double/isInfinite input))
-(defn sin [input] (Math/sin input))
+(defn sin [input] (Math/sin (float input)))
 (defn cos [input] (Math/cos input))
 (defn pow [input power] (Math/pow input power))
 (defn sqrt [input] (Math/sqrt input))
-(defn abs [input] (Math/abs input))
+(defn abs [input] (if (is-infinite input) positive-infinity (Math/abs (float input))))
 (defn ceil [x] (if (integer? x) x (inc (int x))))
 (defn floor [x] (int x))
 (defn round [x] (int (clojure.core/+ x 1/2)))
@@ -94,7 +94,7 @@
      false)))
 (defn seq=
   ([x] true)
-  ([x y] (and (= (count x) (count y)) (every? identity (map #(if (and (sequential? x) (sequential? y)) (seq= %1 %2) (= %1 %2)) x y))))
+  ([x y] (and (= (count x) (count y)) (every? identity (map #(= %1 %2) x y))))
   ([x y & more]
      (if (seq= x y)
        (if (next more)

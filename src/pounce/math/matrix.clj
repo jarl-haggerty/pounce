@@ -17,6 +17,9 @@
   ([one two three & data]
      (matrix (concat [one two three] data) (+ (count data) 3) 1)))
 
+(defn matrix? [M] (= (:type (meta M)) :matrix))
+(defn mat [M] (if (matrix? M) M (matrix M)))
+
 (defn zero
   ([height] (zero height 1))
   ([height width] (matrix (repeat (* height width) 0) height width)))
@@ -143,5 +146,8 @@
 (defn rotation [theta] (matrix [(cos theta) (sin theta) (- (sin theta)) (cos theta)] 2 2))
 (defn transform
   ([x y angle] (transform (matrix [x y] 2 1) angle))
-  ([displacement angle] (with-meta  {:translation displacement :rotation (rotation angle)} {:type :transform})))
+  ([displacement angle] (with-meta  {:translation (mat displacement) :rotation (if (matrix? angle) angle (rotation angle))} {:type :transform})))
 (def identity-transform (transform 0 0 0))
+(defn transform? [T] (= (:type (meta T)) :transform))
+
+(defmethod equal [:transform :transform] [x y] (and (= (:translation x) (:translation y)) (= (:rotation x) (:rotation y))))

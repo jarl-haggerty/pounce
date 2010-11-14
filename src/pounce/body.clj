@@ -1,6 +1,6 @@
 (ns pounce.body
   (:import java.awt.Color)
-  (:refer-clojure :exclude [+ - * / < <= > >= max-key min-key])
+  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use pounce.shape
         pounce.math.math
         pounce.math.matrix
@@ -8,50 +8,56 @@
     
 (def default-body-map
      (with-meta
-       {:transformation identity-transform
+       {:transform identity-transform
         :shapes []
-        :inertia-tensor 0
+        :moment-of-inertia positive-infinity
         :linear-momentum (matrix 0 0)
         :angular-momentum 0
         :linear-velocity (matrix 0 0)
         :angular-velocity 0
-        :mass 0
+        :mass positive-infinity
         :center-of-mass (matrix 0 0)
         :center (matrix 0 0)
         :radius 0} {:type :body}))
 
+
 (defn radius 
   ([center shapes]
-     (loop [stack shapes result 0]
-       (if (empty? stack)
-         result
-         (recur (rest stack) (max result (farside-distance center))))))
+     (apply max (map #(farside-distance % center) shapes)))
   ([body] (radius (:center body) (:shapes body))))
 
-(defn body [trans & shapes] 
-  (let [mass (if (== (count shapes) 1) (:mass (first shapes)) (reduce #(+ (:mass %1) (:mass %2)) shapes))
-        center (if (== (count shapes) 1) (:center (first shapes)) (/ (reduce #(+ (:center %1) (:center %2)) shapes) (count shapes)))
-        center-of-mass (if (or (is-infinite mass) (== (count shapes) 1))
-                       center
-                       (/ (reduce #(+ (* (:center %1) (:mass %1)) (* (:center %2) (:mass %2))) shapes) (count shapes)))]
-    (merge default-body-map {:mass mass :center center :center-of-mass center-of-mass})))
+(defn body [raw-trans & raw-shapes] 
+  (let [[trans shapes] (if (transform? raw-trans) [raw-trans raw-shapes] [identity-transform (cons raw-trans raw-shapes)])
+        mass (reduce #(+ %1 (:mass %2)) (:mass (first shapes)) (rest shapes))
+        center (/ (reduce #(+ %1 (:center %2)) (:center (first shapes)) (rest shapes)) (count shapes))
+        center-of-mass (if (is-infinite mass)
+                         center
+                         (/ (reduce #(+ %1 (* (:center %2) (:mass %2))) (* (:center (first shapes)) (:mass (first shapes))) (rest shapes)) mass))]
+    (merge default-body-map {:shapes shapes
+                             :transform trans
+                             :moment-of-inertia (reduce + (map #(moment-of-inertia % center-of-mass) shapes))
+                             :mass mass
+                             :center center
+                             :center-of-mass center-of-mass
+                             
+                             :radius (radius center shapes)})))
 
 (defn step [before linear-impulse angular-impulse delta]
   (let [new-linear-momentum (+ (:linear-momentum before) linear-impulse)
         new-angular-momentum (+ (:angular-momentum before) angular-impulse)
+        rotation-matrix (rotation (* delta (/ new-angular-momentum (:moment-of-inertia before))))
         after (transient before)]
     (assoc! after :linear-momentum new-linear-momentum)
     (assoc! after :angular-momentum new-angular-momentum)
-    (assoc! after
-             :transform
-             (let [center (* (:transform before) (:center-of-mass before))]
-               (transform (+
-                           (* (:rotation (:transform before))
-                              (- (:translation (:transform before))
-                                 center))
-                           center)
-                          (* (:rotation (:transform before))
-                             (rotation (* (:angular-velocity before) delta))))))
+    (assoc! after :transform
+            (let [center (* (:transform before) (:center-of-mass before))]
+              (transform (+
+                          (* (:rotation (:transform before)) rotation-matrix
+                             (- (:translation (:transform before))
+                                center))
+                          center
+                          (* delta (/ new-linear-momentum (:mass before))))
+                         (* (:rotation (:transform before)) rotation-matrix))))
     (persistent! after)))
 
 (defmethod render :body [body g]

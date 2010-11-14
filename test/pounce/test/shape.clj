@@ -18,10 +18,26 @@
           :mass 10
           :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
           :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+(deftest shape-polygon-3
+  (is (= (polygon [0 0] [1 0] [1 1] [0 1])
+         {:center {:data [1/2 1/2] :height 2 :width 1}
+          :mass positive-infinity
+          :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+(deftest shape-polygon-4
+  (is (= (polygon 10 [0 0] [1 0] [1 1] [0 1])
+         {:center {:data [1/2 1/2] :height 2 :width 1}
+          :mass 10
+          :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
 (deftest shape-circle-1
   (is (= (circle (matrix 0 0) 5) {:mass positive-infinity :center (matrix 0 0) :radius 5})))
 (deftest shape-circle-2
   (is (= (circle 10 (matrix 0 0) 5) {:mass 10 :center (matrix 0 0) :radius 5})))
+(deftest shape-circle-3
+  (is (= (circle [0 0] 5) {:mass positive-infinity :center (matrix 0 0) :radius 5})))
+(deftest shape-circle-4
+  (is (= (circle 10 [0 0] 5) {:mass 10 :center (matrix 0 0) :radius 5})))
 (deftest normals-polygon-undirected
   (let [result-normals (normals (apply polygon (map matrix [[0 0] [1 0] [1 1] [0 1]])))
         expected-normals [{:normal (matrix 0 -1) :side [(matrix 0 0) (matrix 1 0)]}
@@ -161,13 +177,15 @@
   (is (= (apply polygon 3 (map matrix [[1 2] [2 2] [2 3] [1 3]])) (apply polygon 3 (map matrix [[1 2] [2 2] [2 3] [1 3]]))))
   (is (not= (apply polygon 3 (map matrix [[1 2] [2 2] [2 3] [1 3]])) (apply polygon 5 (map matrix [[1 2] [2 2] [2 3] [1 3]]))))
   (is (not= (apply polygon (map matrix [[1 2] [2 2] [2 3] [1 3]])) (apply polygon (map matrix [[1 1] [2 2] [2 3] [1 3]]))))
-  (is (not= (apply polygon (map matrix [[1 2] [2 2] [2 3] [1 3]])) (apply polygon (map matrix [[2 2] [2 3] [1 3]])))))
+  (is (not= (apply polygon (map matrix [[1 2] [2 2] [2 3] [1 3]])) (apply polygon (map matrix [[2 2] [2 3] [1 3]]))))
+  (is (not= (polygon [0 0] [1 0] [1 1] [0 1]) (circle [0 0] 1))))
 (deftest shape-circle-=
   (is (= (circle (matrix 1 1) 3) (circle (matrix 1 1) 3)))
   (is (= (circle 2 (matrix 1 1) 3) (circle 2 (matrix 1 1) 3)))
   (is (not= (circle 10 (matrix 2 1) 3) (circle 2 (matrix 1 1) 3)))
   (is (not= (circle (matrix 2 1) 3) (circle (matrix 1 1) 3)))
-  (is (not= (circle (matrix 1 1) 1) (circle (matrix 1 1) 3))))
+  (is (not= (circle (matrix 1 1) 1) (circle (matrix 1 1) 3)))
+  (is (not= (circle [0 0] 1) (polygon [0 0] [1 0] [1 1] [0 1]))))
 (deftest shape-multiply-polygon-1
   (let [result-shape (* (transform 1 2 0) (apply polygon (map matrix [[0 0] [1 0] [1 1] [0 1]])))
         expected-shape (apply polygon (map matrix [[1 2] [2 2] [2 3] [1 3]]))]

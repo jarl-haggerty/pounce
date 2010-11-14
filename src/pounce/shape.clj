@@ -6,7 +6,9 @@
         pounce.render))
 
 (defn polygon [raw-mass & raw-points]
-  (let [[mass points] (if (number? raw-mass) [raw-mass raw-points] [positive-infinity (cons raw-mass raw-points)])]
+  (let [[mass points] (if (number? raw-mass)
+                        [raw-mass (map #(if (matrix? %) % (matrix %)) raw-points)]
+                        [positive-infinity (map #(if (matrix? %) % (matrix %)) (cons raw-mass raw-points))])]
     (with-meta {:center (/ (reduce #(+ %1 %2) points) (count points))
                 :mass mass
                 :points points
@@ -16,7 +18,7 @@
 (defn circle
   ([center radius] (circle positive-infinity center radius))
   ([mass center radius]
-     (with-meta  {:center center :mass mass :radius radius} {:type :circle})))
+     (with-meta  {:center (if (matrix? center) center (matrix center)) :mass mass :radius radius} {:type :circle})))
 
 (defmulti normals (fn [shape & _] (:type (meta shape))))
 
@@ -110,11 +112,18 @@
                       (:radius shape)
                       (:radius shape)))
 
-(defmethod equal [:shape :shape] [x y]
+(defmethod equal [:polygon :polygon] [x y]
            (and (= (:center x) (:center y))
                 (= (:mass x) (:mass y))
                 (seq= (:points x) (:points y))
                 (seq= (:normals x) (:normals y))))
+(defmethod equal [:circle :circle] [x y]
+           (and (= (:center x) (:center y))
+                (= (:mass x (:mass y)))
+                (= (:radius x) (:radius y))))
+(defmethod equal [:circle :polygon] [x y] false)
+(defmethod equal [:polygon :circle] [x y] false)
+
 
 (defmethod multiply [:transform :polygon] [x y]
            (apply polygon (:mass y) (map #(* x %) (:points y))))
@@ -126,3 +135,20 @@
 (defmethod add [:circle :matrix] [x y] (apply polygon (:mass x) (+ y (:center x)) (:radius x)))
 (defmethod add [:matrix :polygon] [x y] (apply polygon (:mass y) (map #(+ x %) (:points y))))
 (defmethod add [:matrix :circle] [x y] (apply polygon (:mass y) (+ x (:center y)) (:radius y)))
+
+(defmulti moment-of-inertia (fn [x & _]) (:type (meta x)))
+(defmethod moment-of-inertia :polygon
+  ([shape] (moment-of-inertia shape (:center shape)))
+([shape axis]
+   (for [triangle (map (vector (:center shape) %1 %2) (:points shape) (conj (vec (rest points)) (first points)))]
+       (let [base (length (- (nth triangle 1) (nth triangle 0)))
+             peak (dot (unit (- (nth triangle 1) (nth triangle 0)))
+                       (unit (- (nth triangle 2) (nth triangle 0))))
+             height (sqrt (- (length-squared (- (nth triangle 2) (nth triangle 0))) (pow peak 2)))
+             center (/ (reduce + triangle) 3)]
+         (+ (/ (+ (* (pow b 3) h) (* -1 (pow base 2) height peak) (* base height (pow peak 2)) (* base (pow height 3))) 36)
+            (* (:mass shape) (length-squared (- center axis))))))))
+(defmethod moment-of-inertia :circle
+  ([shape] (moment-of-inertia shape (:center shape)))
+  ([shape axis] (+ (/ (* (:mass shape) (pow (:radius shape) 2)) 2)
+                   (* (:mass shape) (length-squared (- (:center shape) axis))))))
