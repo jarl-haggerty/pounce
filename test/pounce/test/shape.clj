@@ -11,33 +11,49 @@
          {:center {:data [1/2 1/2] :height 2 :width 1}
           :mass positive-infinity
           :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
-          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])
+          :area 1
+          :moment-of-inertia positive-infinity})))
 (deftest shape-polygon-2
   (is (= (apply polygon 10 (map matrix [[0 0] [1 0] [1 1] [0 1]]))
          {:center {:data [1/2 1/2] :height 2 :width 1}
           :mass 10
           :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
-          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])
+          :area 1
+          :moment-of-inertia 5/3})))
 (deftest shape-polygon-3
   (is (= (polygon [0 0] [1 0] [1 1] [0 1])
          {:center {:data [1/2 1/2] :height 2 :width 1}
           :mass positive-infinity
           :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
-          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])
+          :area 1
+          :moment-of-inertia positive-infinity})))
 (deftest shape-polygon-4
   (is (= (polygon 10 [0 0] [1 0] [1 1] [0 1])
          {:center {:data [1/2 1/2] :height 2 :width 1}
           :mass 10
           :points (map matrix [[0 0] [1 0] [1 1] [0 1]])
-          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])})))
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])
+          :area 1
+          :moment-of-inertia 5/3})))
+(deftest shape-polygon-5
+  (is (= (polygon 10 [0 0] [3 0] [3 4] [0 4])
+         {:center {:data [3/2 2] :height 2 :width 1}
+          :mass 10
+          :points (map matrix [[0 0] [3 0] [3 4] [0 4]])
+          :normals (map matrix [[0 -1] [1 0] [0 1] [-1 0]])
+          :area 12
+          :moment-of-inertia 125/6})))
 (deftest shape-circle-1
-  (is (= (circle (matrix 0 0) 5) {:mass positive-infinity :center (matrix 0 0) :radius 5})))
+  (is (= (circle (matrix 0 0) 5) {:mass positive-infinity :center (matrix 0 0) :radius 5 :area (* pi 25) :moment-of-inertia positive-infinity})))
 (deftest shape-circle-2
-  (is (= (circle 10 (matrix 0 0) 5) {:mass 10 :center (matrix 0 0) :radius 5})))
+  (is (= (circle 10 (matrix 0 0) 5) {:mass 10 :center (matrix 0 0) :radius 5 :area (* pi 25) :moment-of-inertia 125})))
 (deftest shape-circle-3
-  (is (= (circle [0 0] 5) {:mass positive-infinity :center (matrix 0 0) :radius 5})))
+  (is (= (circle [0 0] 5) {:mass positive-infinity :center (matrix 0 0) :radius 5 :area (* pi 25) :moment-of-inertia positive-infinity})))
 (deftest shape-circle-4
-  (is (= (circle 10 [0 0] 5) {:mass 10 :center (matrix 0 0) :radius 5})))
+  (is (= (circle 10 [0 0] 5) {:mass 10 :center (matrix 0 0) :radius 5 :area (* pi 25) :moment-of-inertia 125})))
 (deftest normals-polygon-undirected
   (let [result-normals (normals (apply polygon (map matrix [[0 0] [1 0] [1 1] [0 1]])))
         expected-normals [{:normal (matrix 0 -1) :side [(matrix 0 0) (matrix 1 0)]}

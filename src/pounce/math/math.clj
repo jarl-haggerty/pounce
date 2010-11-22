@@ -3,6 +3,7 @@
 
 (def positive-infinity Double/POSITIVE_INFINITY)
 (def negative-infinity Double/NEGATIVE_INFINITY)
+(def nan Double/NaN)
 (def pi Math/PI)
 (def *eps* 1e-10)
 
