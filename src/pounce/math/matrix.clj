@@ -103,6 +103,7 @@
 (defmethod add [nil :matrix] [x y] (matrix (map #(+ x %) (:data y)) (:height y) (:width y)))
 (defmethod add [:matrix nil] [x y] (matrix (map #(+ % y) (:data x)) (:height x) (:width x)))
 (defmethod add [:matrix :matrix] [x y] (matrix (map + (:data x) (:data y)) (:height x) (:width x)))
+(defmethod add [:transform :matrix] [x y] (assoc :translation (+ (:translation x) y)))
 
 (defmethod negate :matrix [x] (matrix (map - (:data x)) (:height x) (:width x)))
 
@@ -151,3 +152,12 @@
 (defn transform? [T] (= (:type (meta T)) :transform))
 
 (defmethod equal [:transform :transform] [x y] (and (= (:translation x) (:translation y)) (= (:rotation x) (:rotation y))))
+
+(defn transform-about [trans center & points]
+  (let [result (for [point points]
+                  (+ (* trans
+                        (- point center))
+                     center))]
+    (if (= (count result) 1)
+      (first result)
+      result)))

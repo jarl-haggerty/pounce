@@ -7,16 +7,16 @@
         pounce.render))
     
 (def default-body-map
-     (with-meta
-       {:transform identity-transform
-        :shapes []
-        :moment-of-inertia positive-infinity
-        :linear-momentum (matrix 0 0)
-        :angular-momentum 0
-        :mass positive-infinity
-        :center-of-mass (matrix 0 0)
-        :center (matrix 0 0)
-        :radius 0} {:type :body}))
+     (with-meta {:transform identity-transform
+                 :shapes []
+                 :moment-of-inertia positive-infinity
+                 :linear-momentum (matrix 0 0)
+                 :angular-momentum 0
+                 :mass positive-infinity
+                 :center-of-mass (matrix 0 0)
+                 :center (matrix 0 0)
+                 :radius 0}
+       {:type :body}))
 
 
 (defn radius 
@@ -61,29 +61,36 @@
            new-angular-momentum (+ (:angular-momentum before) angular-impulse)
            rotation-matrix (rotation (* delta (/ new-angular-momentum (:moment-of-inertia before))))
            after (transient before)]
-       (assoc! after :linear-momentum new-linear-momentum)
-       (assoc! after :angular-momentum new-angular-momentum)
-       (assoc! after :transform
-               (let [center (* (:transform before) (:center-of-mass before))]
-                 (transform (+
-                             (* (:rotation (:transform before)) rotation-matrix
-                                (- (:translation (:transform before))
-                                   center))
-                             center
-                             (* delta (/ new-linear-momentum (:mass before))))
-                            (* (:rotation (:transform before)) rotation-matrix))))
-       (persistent! after))))
+       (merge before {:linear-momentum new-linear-momentum
+                      :angular-momentum new-angular-momentum
+                      :transform (let [center (* (:transform before) (:center-of-mass before))]
+                                   (transform (+
+                                               (* (:rotation (:transform before)) rotation-matrix
+                                                  (- (:translation (:transform before))
+                                                     center))
+                                               center
+                                               (* delta (/ new-linear-momentum (:mass before))))
+                                              (* (:rotation (:transform before)) rotation-matrix)))}))))
 
 (defmethod equal [:body :body] [x y]
-  (= (:transform x) (:transform y))
-  (seq= (:shapes x) (:shapes y))
-  (= (:moment-of-inertia x) (:moment-of-inertia y))
-  (= (:linear-momentum x) (:linear-momentum y))
-  (= (:angular-momentum x)  (:angular-momentum y))
-  (= (:mass x)  (:mass y))
-  (= (:center-of-mass x)  (:center-of-mass y))
-  (= (:center x)  (:center y))
-  (= (:radius x)  (:radius y)))
+           (and (= (:transform x) (:transform y))
+                (seq= (:shapes x) (:shapes y))
+                (= (:moment-of-inertia x) (:moment-of-inertia y))
+                (= (:linear-momentum x) (:linear-momentum y))
+                (= (:angular-momentum x)  (:angular-momentum y))
+                (= (:mass x)  (:mass y))
+                (= (:center-of-mass x)  (:center-of-mass y))
+                (= (:center x)  (:center y))
+                (= (:radius x)  (:radius y))))
+
+(defmethod equal [:contact :contact] [x y]
+           (and (= (:body1 x) (:body1 y))
+                (= (:body2 x) (:body2 y))
+                (= (:normal x) (:normal y))
+                (= (:time x) (:time y))
+                (= (:point x) (:point y))
+                (seq= (:face1 x) (:face1 y))
+                (seq= (:face2 x) (:face2 y))))
 
 (defmethod render :body [body g]
            (doseq [shape (:shapes body)]
@@ -91,23 +98,28 @@
 
 (defn collision 
   ([raw-shape1 body1 raw-shape2 body2 delta]
-     (let [shape1 (* (:transform body1) raw-shape1)
-           shape2 (* (:transform body2) raw-shape2)
-           velocity (- (/ (:linear-momentum body2) (:mass body2)) (/ (:linear-momentum body1) (:mass body1)))]
+     (let [linear-velocity1 (/ (:linear-momentum body1) (:mass body1))
+           linear-velocity2 (/ (:linear-momentum body2) (:mass body2))
+           angular-velocity1 (/ (:angular-momentum body1) (:moment-of-inertia body1))
+           angular-velocity2 (/ (:angular-momentum body2) (:moment-of-inertia body2))
+           shape1 (+ (* (:transform body1) (- raw-shape1 (:center-of-mass body1))) (:center-of-mass body1))
+           shape2 (+ (* (:transform body2) (- raw-shape2 (:center-of-mass body2))) (:center-of-mass body2))
+           velocity (- linear-velocity2 linear-velocity1)]
        (loop [n-stack (normals shape1 (- velocity)) accum [{:time negative-infinity}]]
          (if-let [n (first n-stack)]
            (let [speed (dot (:normal n) velocity)
                  proj (projection (- shape2 (-> n :side first)) (:normal n))
                  start-points (:start-points proj)]
+             (println start-points)
              (if (> (+ (:start proj) (* speed delta)) 0)
                nil
                (let [contact-time (if (= speed 0) 0 (/ (:start proj) (- speed)))
-                     default-contact {:body1 body1 :body2 body2 :normal (:normal n) :time contact-time}]
+                     default-contact (with-meta {:body1 body1 :body2 body2 :normal (:normal n) :time contact-time} {:type :contact})]
                  (cond
                   (< contact-time (:time (first accum)))
                   (recur (rest n-stack) accum)
                   (= (count start-points) 1)
-                  (recur (rest n-stack) (merge default-contact {:point (first start-points) :face1 nil :face2 nil}))
+                  (recur (rest n-stack) [(merge default-contact {:point (first start-points)})])
                   :else
                   (let [plane (unit (- (second (:side n))
                                        (first (:side n))))
@@ -118,11 +130,15 @@
                                                    [(dot plane (- (second start-points) (first (:side n)))) (second start-points)]])]
                                 {:min (first (first temp)) :min-point (second (first temp))
                                  :max (first (second temp)) :max-point (second (second temp))})]
+                    (println "hello")
+                    (println plane)
+                    (println side1)
+                    (println side2)
                     (cond
                      (= (:min side1) (:max side2))
-                     (recur (rest n-stack) [(merge default-contact {:point (:min-point side1) :face1 nil :face2 nil})])
+                     (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
                      (= (:max side1) (:min side2))
-                     (recur (rest n-stack) [(merge default-contact {:point (:max-point side1) :face1 nil :face2 nil})])
+                     (recur (rest n-stack) [(merge default-contact {:point (:max-point side1)})])
                      (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)))
                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
                                                 [(:min-point side2) (:max-point side1)]))
@@ -137,13 +153,25 @@
                                                 [(:min-point side1) (:max-point side1)]))
                      :else
                      (recur (rest n-stack) accum)))))))
-           (keep #(if-let [point (:point %)]
-                    (assoc % :point (+ point
-                                       (* (:time %)
-                                          (/ (:linear-momentum body1)
-                                             (:mass body1)))))
-                    nil)
-                accum)))))
+           (let [temp (keep #(if (:point %)
+                               (merge % {:point (transform-about (transform linear-velocity1 angular-velocity1)
+                                                                 (:center-of-mass body1)
+                                                                 (:point %))
+                                         :normal (* (rotation (* (:time %)
+                                                                 angular-velocity1))
+                                                    (:normal %))
+                                         :face1 (apply transform-about
+                                                       (transform linear-velocity1 angular-velocity1)
+                                                       (:center-of-mass body1)
+                                                       (:face1 %))
+                                         :face2 (apply transform-about
+                                                       (transform linear-velocity2 angular-velocity2)
+                                                       (:center-of-mass body2)
+                                                       (:face2 %))}))
+                            accum)]
+             (doseq [x (map #(dissoc % :body1 :body2) temp)] (doseq [y x] (println y)))
+             temp
+                 )))))
   ([body1 body2 delta]
      (let 
          [contacts 
