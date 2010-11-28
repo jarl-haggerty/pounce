@@ -349,16 +349,16 @@
     (is (= result-body expected-body))))
 
 (deftest collision-equal-1
-  (is (= (with-meta {:body1 (body identity-transform (polygon [0 0] [1 0] [1 1] [0 1]))
-                     :body2 (body (transform 1 2 3) (polygon [1 1] [2 1] [2 2] [1 2]))
+  (is (= (with-meta {:body1 1
+                     :body2 2
                      :normal (matrix 1 0)
                      :time 3
                      :point (matrix 1/2 1/2)
                      :face1 [(matrix 1 1) (matrix 2 2)]
                      :face2 [(matrix 3 3) (matrix 4 4)]}
            {:type :contact})
-         (with-meta {:body1 (body identity-transform (polygon [0 0] [1 0] [1 1] [0 1]))
-                     :body2 (body (transform 1 2 3) (polygon [1 1] [2 1] [2 2] [1 2]))
+         (with-meta {:body1 1
+                     :body2 2
                      :normal (matrix 1 0)
                      :time 3
                      :point (matrix 1/2 1/2)
@@ -366,208 +366,225 @@
                      :face2 [(matrix 3 3) (matrix 4 4)]}
            {:type :contact}))))
 (deftest collision-equal-2
-  (is (= (with-meta {:body1 (body identity-transform (polygon [0 0] [1 0] [1 1] [0 1]))
-                     :body2 (body (transform 1 2 3) (polygon [1 1] [2 1] [2 2] [1 2]))
+  (is (= (with-meta {:body1 :one
+                     :body2 :two
                      :normal (matrix 1 0)
                      :time 3
                      :point (matrix 1/2 1/2)}
            {:type :contact})
-         (with-meta {:body1 (body identity-transform (polygon [0 0] [1 0] [1 1] [0 1]))
-                     :body2 (body (transform 1 2 3) (polygon [1 1] [2 1] [2 2] [1 2]))
+         (with-meta {:body1 :one
+                     :body2 :two
                      :normal (matrix 1 0)
                      :time 3
                      :point (matrix 1/2 1/2)}
            {:type :contact})))))
 
-(deftest collision-1
-  (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-        body2 (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-        result-collision (collision body1 body2 1)
-        expected-collision [{:body1 body1 :body2 body2 :normal (matrix 1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
-                            {:body1 body1 :body2 body2 :normal (matrix 1 0) :time 1 :point (matrix 2 1) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
-                            {:body1 body2 :body2 body1 :normal (matrix 1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
-                            {:body1 body2 :body2 body1 :normal (matrix 1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}]]
-    (is (seq= result-collision expected-collision))))
+(deftest collision-polygon-no-collision
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 0)
+        result-collision2 (collision body1 body2 1)
+        expected-collision ()]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
 
-  (deftest collision-2
-    (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/2)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-3
-    (let [body1 (assoc (body (transform 0 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 1)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/2)
-                               :face1 [(matrix 2 1/2) (matrix 2 3/2)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)
-                               :face1 [(matrix 2 1/2) (matrix 2 3/2)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}]]
-      (doseq [x (dissoc (first result-collision) :body1 :body2)] (println x))
-      (println (count result-collision))
-      (doseq [x (dissoc (second result-collision) :body1 :body2)] (println x))
-      ;(is (seq= result-collision expected-collision))
-      ))(comment
-  (deftest collision-4
-    (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/2)
-                               :face1 [(matrix 2 1/2) (matrix 2 3/2)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)
-                               :face1 [(matrix 2 1/2) (matrix 2 3/2)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}]]
-      (is (seq= result-collision expected-collision))))
+(deftest collision-polygon-one-moving-1
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2.0 1.5) (matrix 2.0 0.5)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1) :face1 [(matrix 2.0 1.5) (matrix 2.0 0.5)] :face2 [(matrix 2 0) (matrix 2 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2.0 1.5) (matrix 2.0 0.5)] :face2 [(matrix 2 0) (matrix 2 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-one-moving-2
+  (let [body1 (merge (body (transform 0 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 1/2) (matrix 2 3/2)] :face2 [(matrix 2 1) (matrix 2 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1) :face1 [(matrix 2 1/2) (matrix 2 3/2)] :face2 [(matrix 2 1) (matrix 2 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1) :face1 [(matrix 2 1) (matrix 2 0)] :face2 [(matrix 2 1/2) (matrix 2 3/2)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1/2) :face1 [(matrix 2 1) (matrix 2 0)] :face2 [(matrix 2 1/2) (matrix 2 3/2)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-one-moving-3
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-one-moving-4
+  (let [body1 (merge (body (transform 0 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-one-moving-5
+  (let [body1 (merge (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1/4) :face1 [(matrix 2 1/4) (matrix 2 3/4)] :face2 [(matrix 2 1) (matrix 2 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 3/4) :face1 [(matrix 2 1/4) (matrix 2 3/4)] :face2 [(matrix 2 1) (matrix 2 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 3/4) :face1 [(matrix 2 1) (matrix 2 0)] :face2 [(matrix 2 1/4) (matrix 2 3/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1/4) :face1 [(matrix 2 1) (matrix 2 0)] :face2 [(matrix 2 1/4) (matrix 2 3/4)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-one-moving-6
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 1/4] [1/2 1/4] [1/2 3/4] [0 3/4])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 1/4) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2 3/4) (matrix 2 1/4)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1 :point (matrix 2 3/4) :face1 [(matrix 2 0) (matrix 2 1)] :face2 [(matrix 2 3/4) (matrix 2 1/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 3/4) :face1 [(matrix 2 3/4) (matrix 2 1/4)] :face2 [(matrix 2 0) (matrix 2 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1 :point (matrix 2 1/4) :face1 [(matrix 2 3/4) (matrix 2 1/4)] :face2 [(matrix 2 0) (matrix 2 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
 
-  (deftest collision-5
-    (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 1)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-6
-    (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-7
-    (let [body1 (assoc (body (transform 0 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 1)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-8
-    (let [body1 (assoc (body (transform 0 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1)}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-9
-    (let [body1 (assoc (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 1)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/4)
-                               :face1 [(matrix 2 1/4) (matrix 2 3/4)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 3/4)
-                               :face1 [(matrix 2 1/4) (matrix 2 3/4)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-10
-    (let [body1 (assoc (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/4)
-                               :face1 [(matrix 2 1/4) (matrix 2 3/4)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 3/4)
-                               :face1 [(matrix 2 1/4) (matrix 2 3/4)]
-                               :face2 [(matrix 2 1) (matrix 2 0)]}]]
-      (is (seq= result-collision expected-collision))))
 
-  (deftest collision-11
-    (let [body1 (assoc (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 1/4] [1/2 1/4] [1/2 3/4] [0 3/4]))
-          result-collision (collision body1 body2 1)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/4)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2 3/4) (matrix 2 1/4)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 3/4)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2 3/4) (matrix 2 1/4)]}]]
-      (is (seq= result-collision expected-collision))))
-  (deftest collision-12
-    (let [body1 (assoc (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) :linear-momentum (matrix 1 0))
-          body2 (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1]))
-          result-collision (collision body1 body2 2)
-          expected-collision [{:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 1/4)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2 3/4) (matrix 2 1/4)]}
-                              {:body1 body1
-                               :body2 body2
-                               :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 3/4)
-                               :face1 [(matrix 2 0) (matrix 2 1)]
-                               :face2 [(matrix 2 3/4) (matrix 2 1/4)]}]]
-      (is (seq= result-collision expected-collision))))
+(deftest collision-polygon-both-moving-into-1
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1/2) :face1 [(matrix 3/2 0) (matrix 3/2 1)] :face2 [(matrix 3/2 1.5) (matrix 3/2 0.5)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1) :face1 [(matrix 3/2 0) (matrix 3/2 1)] :face2 [(matrix 3/2 1.5) (matrix 3/2 0.5)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1) :face1 [(matrix 3/2 1.5) (matrix 3/2 0.5)] :face2 [(matrix 3/2 0) (matrix 3/2 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1/2) :face1 [(matrix 3/2 1.5) (matrix 3/2 0.5)] :face2 [(matrix 3/2 0) (matrix 3/2 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-into-2
+  (let [body1 (merge (body (transform 0 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1/2) :face1 [(matrix 3/2 1/2) (matrix 3/2 3/2)] :face2 [(matrix 3/2 1) (matrix 3/2 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1) :face1 [(matrix 3/2 1/2) (matrix 3/2 3/2)] :face2 [(matrix 3/2 1) (matrix 3/2 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1) :face1 [(matrix 3/2 1) (matrix 3/2 0)] :face2 [(matrix 3/2 1/2) (matrix 3/2 3/2)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1/2) :face1 [(matrix 3/2 1) (matrix 3/2 0)] :face2 [(matrix 3/2 1/2) (matrix 3/2 3/2)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-into-3
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-into-4
+  (let [body1 (merge (body (transform 0 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-into-5
+  (let [body1 (merge (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1/4) :face1 [(matrix 3/2 1/4) (matrix 3/2 3/4)] :face2 [(matrix 3/2 1) (matrix 3/2 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 3/4) :face1 [(matrix 3/2 1/4) (matrix 3/2 3/4)] :face2 [(matrix 3/2 1) (matrix 3/2 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 3/4) :face1 [(matrix 3/2 1) (matrix 3/2 0)] :face2 [(matrix 3/2 1/4) (matrix 3/2 3/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1/4) :face1 [(matrix 3/2 1) (matrix 3/2 0)] :face2 [(matrix 3/2 1/4) (matrix 3/2 3/4)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-into-6
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 1/4] [1/2 1/4] [1/2 3/4] [0 3/4])) {:id 2 :linear-momentum (matrix -1 0)})
+        result-collision1 (collision body1 body2 1/2)
+        result-collision2 (collision body1 body2 1)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 1/4) :face1 [(matrix 3/2 0) (matrix 3/2 1)] :face2 [(matrix 3/2 3/4) (matrix 3/2 1/4)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 1/2 :point (matrix 3/2 3/4) :face1 [(matrix 3/2 0) (matrix 3/2 1)] :face2 [(matrix 3/2 3/4) (matrix 3/2 1/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 3/4) :face1 [(matrix 3/2 3/4) (matrix 3/2 1/4)] :face2 [(matrix 3/2 0) (matrix 3/2 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 1/2 :point (matrix 3/2 1/4) :face1 [(matrix 3/2 3/4) (matrix 3/2 1/4)] :face2 [(matrix 3/2 0) (matrix 3/2 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+
+
+(deftest collision-polygon-both-moving-away-1
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1/2) :face1 [(matrix 3 0) (matrix 3 1)] :face2 [(matrix 3 1.5) (matrix 3 0.5)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1) :face1 [(matrix 3 0) (matrix 3 1)] :face2 [(matrix 3 1.5) (matrix 3 0.5)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1) :face1 [(matrix 3 1.5) (matrix 3 0.5)] :face2 [(matrix 3 0) (matrix 3 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1/2) :face1 [(matrix 3 1.5) (matrix 3 0.5)] :face2 [(matrix 3 0) (matrix 3 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-away-2
+  (let [body1 (merge (body (transform 0 1/2 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1/2) :face1 [(matrix 3 1/2) (matrix 3 3/2)] :face2 [(matrix 3 1) (matrix 3 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1) :face1 [(matrix 3 1/2) (matrix 3 3/2)] :face2 [(matrix 3 1) (matrix 3 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1) :face1 [(matrix 3 1) (matrix 3 0)] :face2 [(matrix 3 1/2) (matrix 3 3/2)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1/2) :face1 [(matrix 3 1) (matrix 3 0)] :face2 [(matrix 3 1/2) (matrix 3 3/2)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-away-3
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-away-4
+  (let [body1 (merge (body (transform 0 1 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1)}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1)}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-away-5
+  (let [body1 (merge (body identity-transform (polygon 1 [1/2 1/4] [1 1/4] [1 3/4] [1/2 3/4])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1/4) :face1 [(matrix 3 1/4) (matrix 3 3/4)] :face2 [(matrix 3 1) (matrix 3 0)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 3/4) :face1 [(matrix 3 1/4) (matrix 3 3/4)] :face2 [(matrix 3 1) (matrix 3 0)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 3/4) :face1 [(matrix 3 1) (matrix 3 0)] :face2 [(matrix 3 1/4) (matrix 3 3/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1/4) :face1 [(matrix 3 1) (matrix 3 0)] :face2 [(matrix 3 1/4) (matrix 3 3/4)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+(deftest collision-polygon-both-moving-away-6
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 1/4] [1/2 1/4] [1/2 3/4] [0 3/4])) {:id 2 :linear-momentum (matrix 1/2 0)})
+        result-collision1 (collision body1 body2 2)
+        result-collision2 (collision body1 body2 4)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 1/4) :face1 [(matrix 3 0) (matrix 3 1)] :face2 [(matrix 3 3/4) (matrix 3 1/4)]}
+                                 {:body1 1 :body2 2 :normal (matrix 1 0) :time 2 :point (matrix 3 3/4) :face1 [(matrix 3 0) (matrix 3 1)] :face2 [(matrix 3 3/4) (matrix 3 1/4)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 3/4) :face1 [(matrix 3 3/4) (matrix 3 1/4)] :face2 [(matrix 3 0) (matrix 3 1)]}
+                                 {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1/4) :face1 [(matrix 3 3/4) (matrix 3 1/4)] :face2 [(matrix 3 0) (matrix 3 1)]}])]
+    (is (seq= result-collision1 result-collision2 expected-collision))))
+
+(deftest collision-polygon-vertex-edge
+  (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 1/2] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
+        body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
+        result-collision1 (collision body1 body2 1)
+        result-collision2 (collision body1 body2 2)]))
+
+(comment
   (deftest collision-circle-1
     (let [body1 (assoc (body identity-transform (circle 1 [0 0] 1)) :linear-momentum (matrix 1 0))
           body2 (body (transform [3 0] 0) (circle 1 [0 0] 1))
@@ -575,8 +592,8 @@
           expected-collision [{:body1 body1
                                :body2 body2
                                :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 0)}]]
+                               :time 2
+                               :point (matrix 3 0)}]]
       (is (seq= result-collision expected-collision))))
   (deftest collision-circle-2
     (let [body1 (assoc (body identity-transform (circle 1 [0 0] 1)) :linear-momentum (matrix 1 0))
@@ -585,7 +602,7 @@
           expected-collision [{:body1 body1
                                :body2 body2
                                :normal (matrix 1 0)
-                               :time 1
-                               :point (matrix 2 0)}]]
+                               :time 2
+                               :point (matrix 3 0)}]]
       (is (seq= result-collision expected-collision))))
 )

@@ -112,7 +112,7 @@
              (if (> (+ (:start proj) (* speed delta)) 0)
                nil
                (let [contact-time (if (= speed 0) 0 (/ (:start proj) (- speed)))
-                     default-contact (with-meta {:body1 body1 :body2 body2 :normal (:normal n) :time contact-time} {:type :contact})]
+                     default-contact (with-meta {:body1 (:id body1) :body2 (:id body2) :normal (:normal n) :time contact-time} {:type :contact})]
                  (cond
                   (< contact-time (:time (first accum)))
                   (recur (rest n-stack) accum)
@@ -139,41 +139,40 @@
                      (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
                      (= (:max side1) (:min side2))
                      (recur (rest n-stack) [(merge default-contact {:point (:max-point side1)})])
-                     (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side2) (:max-point side1)]))
-                     (and (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side1) (:max-point side2)]))
                      (and (< (:min side1) (:min side2)) (< (:max side2) (:max side1)))
                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
                                                 [(:min-point side2) (:max-point side2)]))
                      (and (< (:min side2) (:min side1)) (< (:max side1) (:max side2)))
                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
                                                 [(:min-point side1) (:max-point side1)]))
+                     (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)))
+                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
+                                                [(:min-point side2) (:max-point side1)]))
+                     (and (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
+                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
+                                                [(:min-point side1) (:max-point side2)]))
                      :else
                      (recur (rest n-stack) accum)))))))
            (let [temp (keep #(if (:point %)
-                               (merge % {:point (transform-about (transform linear-velocity1 angular-velocity1)
+                               (merge % {:point (transform-about (transform (* (:time %) linear-velocity1) (* (:time %) angular-velocity1))
                                                                  (:center-of-mass body1)
                                                                  (:point %))
                                          :normal (* (rotation (* (:time %)
                                                                  angular-velocity1))
                                                     (:normal %))
-                                         :face1 (apply transform-about
-                                                       (transform linear-velocity1 angular-velocity1)
-                                                       (:center-of-mass body1)
-                                                       (:face1 %))
-                                         :face2 (apply transform-about
-                                                       (transform linear-velocity2 angular-velocity2)
-                                                       (:center-of-mass body2)
-                                                       (:face2 %))}))
+                                         :face1 (seq (apply transform-about
+                                                            (transform (* (:time %) linear-velocity1) (* (:time %) angular-velocity1))
+                                                            (:center-of-mass body1)
+                                                            (:face1 %)))
+                                         :face2 (seq (apply transform-about
+                                                            (transform (* (:time %) linear-velocity2) (* (:time %) angular-velocity2))
+                                                            (:center-of-mass body2)
+                                                            (:face2 %)))}))
                             accum)]
-             ;(println)
-             ;(doseq [x (map #(dissoc % :body1 :body2) accum)] (doseq [y x] (println y)))
-             ;(println)
-             ;(doseq [x (map #(dissoc % :body1 :body2) temp)] (doseq [y x] (println y)))
-             ;(println)
+             (when (= 11 (:id body1)) (println) (println) (println linear-velocity1))
+             (doseq [x accum y x :when (= 11 (:id body1))] (println y))
+             (when (= 11 (:id body1)) (println))
+             (doseq [x temp y x :when (= 11 (:id body1))] (println y))
              temp
                  )))))
   ([body1 body2 delta]

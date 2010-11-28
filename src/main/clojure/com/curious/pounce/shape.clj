@@ -52,7 +52,7 @@
 (defmethod normals :circle [shape direction]
            (let [direction-unit (unit direction)
                  side (* (:radius shape) direction-unit)]
-             [{:normal direction-unit :side [side side]}]))
+             [{:normal direction-unit :side [side (+ side (* (- eps) (normal direction-unit)))]}]))
 
 (defmulti projection (fn [shape plane] (:type (meta shape))))
 

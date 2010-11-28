@@ -5,7 +5,7 @@
 (def negative-infinity Double/NEGATIVE_INFINITY)
 (def nan Double/NaN)
 (def pi Math/PI)
-(def *eps* 1e-10)
+(def eps 1e-10)
 
 (defn is-infinite [input] (Double/isInfinite input))
 (defn sin [input] (Math/sin (float input)))
@@ -18,7 +18,7 @@
 (defn round [x] (int (clojure.core/+ x 1/2)))
 (defn circular-vector [coll] (fn [x] (nth coll (mod x (count coll)))))
 (defn eps=
-  ([x y] (eps= x y *eps*))
+  ([x y] (eps= x y eps))
   ([x y eps] (or (clojure.core/= positive-infinity x y)
                  (clojure.core/= negative-infinity x y)
                  (clojure.core/< (abs (clojure.core/- x y)) eps))))
