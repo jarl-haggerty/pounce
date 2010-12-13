@@ -1,4 +1,5 @@
 (ns com.curious.pounce.body
+  "Defines the body structure and methods for simulating forces on it and calculating collisions."
   (:import java.awt.Color)
   (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use com.curious.pounce.shape
@@ -11,20 +12,24 @@
                  :shapes []
                  :moment-of-inertia positive-infinity
                  :linear-momentum (matrix 0 0)
+                 :linear-velocity (matrix 0 0)
                  :angular-momentum 0
+                 :angular-velocity 0
                  :mass positive-infinity
                  :center-of-mass (matrix 0 0)
                  :center (matrix 0 0)
-                 :radius 0}
+                 :radius 0
+                 :kinematic false}
        {:type :body}))
 
-
-(defn radius 
+(defn radius
+  "Used to calculate the radius of an enclosing circle about the center of mass of a body."
   ([center shapes]
      (apply max (map #(farside-distance % center) shapes)))
   ([body] (radius (:center body) (:shapes body))))
 
-(defn body [raw-trans & raw-shapes] 
+(defn body [raw-trans & raw-shapes]
+  "Creates a body from the specified transform and shapes."
   (let [[trans shapes] (if (transform? raw-trans) [raw-trans raw-shapes] [identity-transform (cons raw-trans raw-shapes)])
         mass (reduce #(+ %1 (:mass %2)) (:mass (first shapes)) (rest shapes))
         center (/ (reduce #(+ %1 (:center %2)) (:center (first shapes)) (rest shapes)) (count shapes))
@@ -45,6 +50,7 @@
                              :radius (radius center shapes)})))
 
 (defn step
+  "Simulates a step through time of delta seconds on a body."
   ([before delta]
      (let [rotation-matrix (rotation (* delta (/ (:angular-momentum before) (:moment-of-inertia before))))]
        (assoc before :transform
@@ -91,10 +97,12 @@
                 (seq= (:face2 x) (:face2 y))))
 
 (defmethod render :body [body g]
+           "Renders the shapes of a body"
            (doseq [shape (:shapes body)]
              (render (* (:transform body) shape) g)))
 
-(defn collision 
+(defn collision
+  "Calculates all the points of collisions that will occur in the next delta seconds between two bodies, neglecting rotation."
   ([raw-shape1 body1 raw-shape2 body2 delta]
      (let [linear-velocity1 (/ (:linear-momentum body1) (:mass body1))
            linear-velocity2 (/ (:linear-momentum body2) (:mass body2))
@@ -108,7 +116,6 @@
            (let [speed (dot (:normal n) velocity)
                  proj (projection (- shape2 (-> n :side first)) (:normal n))
                  start-points (:start-points proj)]
-             ;(println start-points)
              (if (> (+ (:start proj) (* speed delta)) 0)
                nil
                (let [contact-time (if (= speed 0) 0 (/ (:start proj) (- speed)))
@@ -130,10 +137,6 @@
                                                    [second-dot (+ (* second-dot plane) (first (:side n)))]])]
                                 {:min (first (first temp)) :min-point (second (first temp))
                                  :max (first (second temp)) :max-point (second (second temp))})]
-                    ;(println "hello")
-                    ;(println plane)
-                    ;(println side1)
-                    ;(println side2)
                     (cond
                      (= (:min side1) (:max side2))
                      (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
@@ -183,9 +186,5 @@
                        shape2 (:shapes body2)]
                    (concat (collision shape1 body1 shape2 body2 delta)
                            (collision shape2 body2 shape1 body1 delta))))
-          ;_ (doseq [contact contacts]
-          ;    (println (-> contact
-          ;                 (dissoc :body1)
-         ;                  (dissoc :body2))))
           min-time (apply min positive-infinity (map #(:time %) contacts))]
        (filter #(<= min-time (:time %)) contacts))))

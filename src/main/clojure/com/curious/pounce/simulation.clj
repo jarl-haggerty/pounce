@@ -21,7 +21,8 @@
                                         new-action
                                         (assoc new-action (:body input))))))))
 
-  (defn simulation 
+  (defn simulation
+    ([] (simulation []))
     ([bodies] (simulation bodies (column 0 0)))
     ([bodies gravity] {:simulation bodies :gravity gravity :actions (atom {})}))
 

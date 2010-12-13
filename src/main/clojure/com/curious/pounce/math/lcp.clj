@@ -1,10 +1,13 @@
 (ns com.curious.pounce.math.lcp
+  "Defines functions for solving linear complementarity problems and
+   convex quadratic programming problems."
   (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use com.curious.pounce.math.polynomial
         com.curious.pounce.math.matrix
         com.curious.pounce.math.math))
 
 (defn move-in [system moving-in]
+  "Moves a specified symbol into the dictionary and some symbol out."
   (let [ratios 
          (for [equation (:equations system)]
            (if (and (get (:right equation) [moving-in 1])
@@ -38,6 +41,7 @@
     
 
 (defn solve-lcp [M q]
+  "Finds a solution to a linear complementarity problem."
   (let [raw-equations
         {:moved-out ['w 0]
          :equations (apply vector
@@ -87,6 +91,7 @@
     
   
 (defn solve-convex-quadratic-problem [S A b c]
+  "Finds a solution to a convex quadratic programming problem."
   (let [M (stack (append S (transpose A)) (append (- A) (zero (:height A))))
         q (stack (- c) b)]
     (take (:width A) ('z (solve-lcp M q)))))

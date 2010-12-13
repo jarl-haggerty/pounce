@@ -1,8 +1,13 @@
 (ns com.curious.pounce.math.polynomial
+  "Defines function for creating and manipulating polynomials."
   (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use com.curious.pounce.math.math))
 
-(defn polynomial [& terms]
+(defn polynomial
+  "Creates a polynomial from the specified terms.  The terms may be numbers or symbols, or sequences of the form
+   [coefficient symbol exponent], [coefficient symbol], or [symbol exponent].  For comparisons 'epsilon will be
+   interpreted as the upper limit of x as it goes to zero."
+  [& terms]
   (let [new-poly
          (into {}
            (filter #(not= (first (second %)) 0)
@@ -68,7 +73,9 @@
 (defmethod equal [:float :polynomial] [x y] (and (= 1 (count y)) (= x (first (get y [1 1])))))
 (defmethod equal [:integer :polynomial] [x y] (and (= 1 (count y)) (= x (first (get y [1 1])))))
 
-(defn constant-part [input]
+(defn constant-part
+  "Returns the polynomial with all but the constant and epsilon terms removed."
+  [input]
   (apply polynomial (filter #(or (= (second %) 1) (= (second %) 'epsilon)) (vals input))))
 
 (defmethod less-than [:polynomial :polynomial] [x y]

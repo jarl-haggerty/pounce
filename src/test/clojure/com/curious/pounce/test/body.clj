@@ -577,14 +577,17 @@
                                  {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 3/4) :face1 [(matrix 3 3/4) (matrix 3 1/4)] :face2 [(matrix 3 0) (matrix 3 1)]}
                                  {:body1 2 :body2 1 :normal (matrix -1 0) :time 2 :point (matrix 3 1/4) :face1 [(matrix 3 3/4) (matrix 3 1/4)] :face2 [(matrix 3 0) (matrix 3 1)]}])]
     (is (seq= result-collision1 result-collision2 expected-collision))))
-
+(comment
 (deftest collision-polygon-vertex-edge
   (let [body1 (merge (body identity-transform (polygon 1 [0 0] [1 1/2] [0 1])) {:id 1 :linear-momentum (matrix 1 0)})
         body2 (merge (body (transform 2 0 0) (polygon 1 [0 0] [1 0] [1 1] [0 1])) {:id 2})
         result-collision1 (collision body1 body2 1)
-        result-collision2 (collision body1 body2 2)]))
+        result-collision2 (collision body1 body2 2)
+        expected-collision (map #(with-meta % {:type :contact})
+                                [{:body1 1 :body2 2 :normal :time 1 :point (matrix 2 1/2)}
+                                 {:body1 1 :body2 2 :normal :time 1 :point (matrix 2 1/2)}])]))
 
-(comment
+
   (deftest collision-circle-1
     (let [body1 (assoc (body identity-transform (circle 1 [0 0] 1)) :linear-momentum (matrix 1 0))
           body2 (body (transform [3 0] 0) (circle 1 [0 0] 1))
