@@ -129,11 +129,13 @@
 (defmethod farside-distance :circle [shape origin]
            (+ (length (- (:center shape) origin)) (:radius shape)))
 
-(defmethod render :polynomial [shape g]
+(defmethod render :polygon [shape g]
            (.setColor g Color/white)
            (doseq [[v1 v2] (map vector
+                                (:points shape)
                                 (conj (vec (rest (:points shape))) (first (:points shape))))]
-             (.drawLine g (x v1) (y v1) (x v2) (y v2))))
+             (.drawLine g (x v1) (- (-> g .getClipBounds .getHeight) (y v1))
+                        (x v2) (- (-> g .getClipBounds .getHeight) (y v2)))))
 
 (defmethod render :circle [shape g]
            (.setColor g Color/white)

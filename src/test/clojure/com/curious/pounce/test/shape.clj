@@ -83,12 +83,13 @@
     (is (= (nth result-normals 1) (nth expected-normals 1)))))
 (deftest normals-circle-1
   (let [result-normals (normals (circle (matrix 0 0) 5) (matrix 1 0))
-        expected-normals [{:normal (matrix 1 0) :side [(matrix 5 0) (matrix 5 0)]}]]
+        expected-normals [{:normal (matrix 1 0) :side [(matrix 5 0) (matrix 5 eps)]}]]
     (is (= (count result-normals) (count expected-normals) 1))
     (is (= (nth result-normals 0) (nth expected-normals 0)))))
 (deftest normals-circle-2
   (let [result-normals (normals (circle (matrix 0 0) 5) (matrix 1 1))
-        expected-normals [{:normal (matrix (/ (sqrt 2)) (/ (sqrt 2))) :side [(* 5 (matrix (/ (sqrt 2)) (/ (sqrt 2)))) (* 5 (matrix (/ (sqrt 2)) (/ (sqrt 2))))]}]]
+        expected-normals [{:normal (matrix (/ (sqrt 2)) (/ (sqrt 2))) :side [(* 5 (matrix (/ (sqrt 2)) (/ (sqrt 2)))) (+ (* 5 (matrix (/ (sqrt 2)) (/ (sqrt 2))))
+                                                                                                                         (* (- eps) (matrix (/ (sqrt 2)) (/ -1 (sqrt 2)))))]}]]
     (is (= (count result-normals) (count expected-normals) 1))
     (is (= (nth result-normals 0) (nth expected-normals 0)))))
 (deftest projection-square-1

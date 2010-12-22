@@ -47,7 +47,7 @@
 
 (defn get-cell
   "Returns the value at the specified row and column(default 0) in matrix M."
-  ([M row] (get-cell M position 0))
+  ([M row] (get-cell M row 0))
   ([M row column] ((:data M) (+ row (* (:height M) column)))))
 
 (defn set-cell

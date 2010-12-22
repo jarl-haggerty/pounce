@@ -2,81 +2,104 @@
   (:import java.awt.Color)
   (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use com.curious.pounce.body
-	com.curious.pounce.math.math 
+	com.curious.pounce.math.math
+        com.curious.pounce.math.matrix
 	com.curious.pounce.render))
-(comment
-  (def default-action {:force 0 :torque 0 :linear-impulse 0 :angular-impulse 0 :body nil})
 
-  (def next-id (atom 0))
+(def default-action {:force 0 :torque 0 :linear-impulse 0 :angular-impulse 0})
+
+(def next-id (atom 0))
   
-  (defn action
-    ([sim input]
-       (action sim @next-id input)
-       (swap! next-id inc))
-    ([sim id input]
-       (let [old-action (dissoc (get @(:actions sim) id) :body)
-             input-action (dissoc (merge default-action input) :body)
-             new-action (merge-with + old-action input-action)]
-         (swap! (:actions sim) (fn [x] (if (nil? (:body input))
-                                        new-action
-                                        (assoc new-action (:body input))))))))
+(defn action
+  ([sim input]
+     (action sim @next-id input)
+     (swap! next-id inc))
+  ([sim id input]
+     (let [old-action  (or (get @(:actions sim) id)
+                           default-action)
+           input-action (merge default-action input)
+           new-action (assoc (merge-with + (dissoc old-action :body) (dissoc input-action :body))
+                        :body (or (:body input-action)
+                                  (:body old-action)))]
+       (swap! (:actions sim) (fn [x] (assoc x id new-action))))))
 
-  (defn simulation
-    ([] (simulation []))
-    ([bodies] (simulation bodies (column 0 0)))
-    ([bodies gravity] {:simulation bodies :gravity gravity :actions (atom {})}))
+(defn simulation
+  ([] (simulation []))
+  ([bodies] (simulation bodies (matrix 0 0)))
+  ([bodies gravity] (with-meta {:bodies bodies
+                                :gravity gravity
+                                :actions (atom (into {} (map #(vector % default-action) (keys bodies))))}
+                      {:type :simulation})))
 
-  (defn get-body [sim at] (get (:bodies sim) at))
+(defn get-body [sim at] (get (:bodies sim) at))
 
-  (defn simulate [sim delta]
-    (let [new-bodies (apply merge (:bodies sim)
-                            (for [k (keys @(:actions sim))]
-                              (let [action (get @(:actions sim) k)]
-                                {k (merge-with +
-                                               (get @(:actions sim) :body (get (:bodies sim) k))
-                                               {:linear-momentum (+ (* delta (:force action)) (:linear-impulse action))
-                                                :angular-momentum (+ (* delta (:torque action)) (:angular-impulse action))})})))
-          contacts (loop [stack1 (vals new-bodies) accum1 []]
-                     (if-let [body1 (first stack1)]
-                       (recur (rest stack1)
-                              (concat accum1
-                                      (loop [stack2 (rest stack1) accum2 []]
-                                        (if-let [body2 (first stack2)]
-                                          (recur (rest stack2) (concat accum2 (collision body1 body2 delta)))
-                                          accum2))))))
-          lcp-matrix (matrix (for [c1 contacts c2 contacts
-                                   :let [ran1 (cross (- (:point c1) (* (-> c1 :body1 :transform)
-                                                                       (-> c1 :body1 :center-of-mass)))
-                                                     (:normal c1))
-                                         rbn1 (cross (- (:point c1) (* (-> c1 :body2 :transform)
-                                                                       (-> c1 :body2 :center-of-mass)))
-                                                     (:normal c1))
-                                         ran2 (cross (- (:point c2) (* (-> c2 :body1 :transform)
-                                                                       (-> c2 :body1 :center-of-mass)))
-                                                     (:normal c2))
-                                         rbn2 (cross (- (:point c2) (* (-> c2 :body2 :transform)
-                                                                       (-> c2 :body2 :center-of-mass)))
-                                                     (:normal c2))
-                                         first-term (+ (/ (dot (:normal c1) (:normal c2)) (-> c1 :body1 :mass))
-                                                       (dot ran1 (/ ran2 (-> c1 :body1 :moment-of-inertia))))
-                                         second-term (+ (/ (dot (:normal c1) (:normal c2)) (-> c1 :body2 :mass))
-                                                        (dot rbn1 (/ rbn2 (-> c1 :body2 :moment-of-inertia))))]]
-                               (+ (cond
-                                   (= (:body1 c1) (:body1 c2)) first-term
-                                   (= (:body1 c1) (:body2 c2)) (- first-term)
-                                   :else 0)
-                                  (cond
-                                   (= (:body2 c1) (:body1 c2)) first-term
-                                   (= (:body2 c1) (:body2 c2)) (- first-term)
-                                   :else 0))
-                               )
-                             (count contacts)
-                             (count contacts))
-          S (* (transpose A) A)
-          A0 (append (- A) A)
-          b0 (append b (- c b))]))
+(defn simulate [sim delta]
+  (let [new-bodies (apply merge (:bodies sim)
+                          (for [[k action] @(:actions sim)]
+                            {k (step (merge-with +
+                                                 (or (get action :body)
+                                                     (get (:bodies sim) k))
+                                                 {:linear-momentum (+ (* delta (:force action)) (:linear-impulse action))
+                                                  :angular-momentum (+ (* delta (:torque action)) (:angular-impulse action))})
+                                     delta)}))
+        contacts (vec (for [bodies (map #(nthnext (vals new-bodies) %) (range (count new-bodies)))
+                            body2 (rest bodies)]
+                        (collision (first bodies) body2)))
+        _ (comment 
+                   G (apply stack (for [index (range (count contacts))
+                                        :let [contact (contacts i)
+                                              body1 (get sim (:body1 contact))
+                                              body2 (get sim (:body2 contact))]]
+                                    (transpose (stack (zeros 1 (* index 6))
+                                                      (- (:normal contact))
+                                                      (cross (- (* (:transform body1) (:point contact))
+                                                                (* (:transform body1) (:center-of-mass body1)))
+                                                             (:normal contact))
+                                                      (:normal contact)
+                                                      (cross (- (* (:transform body2) (:point contact))
+                                                                (* (:transform body2) (:center-of-mass body2)))
+                                                             (:normal contact))
+                                                      (zeros 1 (* (- index 2) 6))))))
+                   F (apply stack (for [contact contacts
+                                        :let [body1 (get sim (:body1 contact))
+                                              body2 (get sim (:body2 contact))]]
+                                    (stack (/ (:linear-momentum body1)
+                                              delta)
+                                           (/ (:angular-momentum body1)
+                                              delta)
+                                           (/ (:linear-momentum body2)
+                                              delta)
+                                           (/ (:angular-momentum body2)
+                                              delta))))
+                   M (apply stack (for [index (range (count contacts))
+                                        :let [contact (contacts i)
+                                              body1 (get sim (:body1 contact))
+                                              body2 (get sim (:body2 contact))]]
+                                    (stack (component (* 6 (count contacts)) (* 3 index) (:mass body1))
+                                           (component (* 6 (count contacts)) (+ 1 (* 3 index)) (:mass body1))
+                                           (component (* 6 (count contacts)) (+ 2 (* 3 index)) (:moment-of-inertia body1))
+                                           (component (* 6 (count contacts)) (+ 3 (* 3 index)) (:mass body2))
+                                           (component (* 6 (count contacts)) (+ 4 (* 3 index)) (:mass body2))
+                                           (component (* 6 (count contacts)) (+ 5 (* 3 index)) (:moment-of-inertia body2)))))
+                   V (apply stack (for [contact contacts
+                                        :let [body1 (get sim (:body1 contact))
+                                              body2 (get sim (:body2 contact))]]
+                                    (stack (/ (:linear-momentum body1)
+                                              (:mass body1))
+                                           (/ (:angular-momentum body1)
+                                              (:mass body1))
+                                           (/ (:linear-momentum body2)
+                                              (:mass body2))
+                                           (/ (:angular-momentum body2)
+                                              (:mass body2))))))]
+    (if (seq contacts)
+      (println contacts))
+    (assoc sim
+      :bodies new-bodies
+      :actions (atom (into {} (map #(vector % default-action) (keys new-bodies)))))))
 
-  (defmethod render :simulation [sim g]
-             (.setColor g Color/black)
-             (.fillRect g 0 0 (-> g .getClipBounds .getWidth) (-> g .getClipBounds .getHeight))
-             (doseq [x (vals (:bodies sim))] (render x g))))
+(defmethod render :simulation [sim g]
+           (.setColor g Color/black)
+           (.fillRect g 0 0 (-> g .getClipBounds .getWidth) (-> g .getClipBounds .getHeight))
+           (doseq [x (vals (:bodies sim))]
+             (render x g)))

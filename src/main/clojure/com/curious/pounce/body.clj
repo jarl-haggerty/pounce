@@ -50,16 +50,18 @@
                              :radius (radius center shapes)})))
 
 (defn step
-  "Simulates a step through time of delta seconds on a body."
+  "Simulates a step through a time of delta seconds on a body."
   ([before delta]
      (let [rotation-matrix (rotation (* delta (/ (:angular-momentum before) (:moment-of-inertia before))))]
        (assoc before :transform
               (let [center (* (:transform before) (:center-of-mass before))]
-                (transform (+ (* (:rotation (:transform before)) rotation-matrix
+                (transform (+ (:translation (:transform before))
+                              (* delta (/ (:linear-momentum before) (:mass before)))
+                              (- (* rotation-matrix
+                                    (- (:translation (:transform before))
+                                       center))
                                  (- (:translation (:transform before))
-                                    center))
-                              center
-                              (* delta (/ (:linear-momentum before) (:mass before))))
+                                    center)))
                            (* (:rotation (:transform before)) rotation-matrix))))))
   ([before linear-impulse angular-impulse delta]
      (let [new-linear-momentum (+ (:linear-momentum before) linear-impulse)
@@ -145,15 +147,16 @@
                      (and (< (:min side1) (:min side2)) (< (:max side2) (:max side1)))
                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
                                                 [(:min-point side2) (:max-point side2)]))
-                     (and (< (:min side2) (:min side1)) (< (:max side1) (:max side2)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side1) (:max-point side1)]))
-                     (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side2) (:max-point side1)]))
-                     (and (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side1) (:max-point side2)]))
+                     (or (and (zero? (x (:normal n))) (> (y (:normal n)) 0)) (> (x (:normal n)) 0))
+                     (cond
+                      (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)) (< (:max side1) (:max side2)))
+                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
+                                                 [(:min-point side2) (:max-point side1)]))
+                      (and (< (:min side2) (:min side1)) (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
+                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
+                                                 [(:min-point side1) (:max-point side2)]))
+                      :else
+                      (recur (rest n-stack) accum))
                      :else
                      (recur (rest n-stack) accum)))))))
            (let [temp (keep #(if (:point %)
@@ -187,4 +190,6 @@
                    (concat (collision shape1 body1 shape2 body2 delta)
                            (collision shape2 body2 shape1 body1 delta))))
           min-time (apply min positive-infinity (map #(:time %) contacts))]
-       (filter #(<= min-time (:time %)) contacts))))
+       (filter #(<= min-time (:time %)) contacts)))
+  ([body1 body2]
+     (collision body1 body2 0)))

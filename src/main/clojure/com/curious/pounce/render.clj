@@ -3,5 +3,5 @@
 
 (defmulti render
   "Multi function for rendering, dispatches on :type in metadata."
-  :type)
+  (fn [subject & _] (:type (meta subject))))
 
