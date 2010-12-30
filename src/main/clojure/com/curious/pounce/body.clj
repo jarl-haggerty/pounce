@@ -103,95 +103,12 @@
            (doseq [shape (:shapes body)]
              (render (* (:transform body) shape) g)))
 
-(defn collision
-  "Calculates all the points of collisions that will occur in the next delta seconds between two bodies, neglecting rotation."
-  ([raw-shape1 body1 raw-shape2 body2 delta]
-     (let [linear-velocity1 (/ (:linear-momentum body1) (:mass body1))
-           linear-velocity2 (/ (:linear-momentum body2) (:mass body2))
-           angular-velocity1 (/ (:angular-momentum body1) (:moment-of-inertia body1))
-           angular-velocity2 (/ (:angular-momentum body2) (:moment-of-inertia body2))
-           shape1 (transform-about (:transform body1) (:center-of-mass body1) raw-shape1)
-           shape2 (transform-about (:transform body2) (:center-of-mass body2) raw-shape2)
-           velocity (- linear-velocity2 linear-velocity1)]
-       (loop [n-stack (normals shape1 (- velocity)) accum [{:time negative-infinity}]]
-         (if-let [n (first n-stack)]
-           (let [speed (dot (:normal n) velocity)
-                 proj (projection (- shape2 (-> n :side first)) (:normal n))
-                 start-points (:start-points proj)]
-             (if (> (+ (:start proj) (* speed delta)) 0)
-               nil
-               (let [contact-time (if (= speed 0) 0 (/ (:start proj) (- speed)))
-                     default-contact (with-meta {:body1 (:id body1) :body2 (:id body2) :normal (:normal n) :time contact-time} {:type :contact})]
-                 (cond
-                  (< contact-time (:time (first accum)))
-                  (recur (rest n-stack) accum)
-                  (= (count start-points) 1)
-                  (let [plane (unit (- (second (:side n))
-                                       (first (:side n))))
-                        side {:min 0 :min-point (first (:side n))
-                               :max (length (- (second (:side n)) (first (:side n)))) :max-point (second (:side n))}
-                        point (dot plane (first start-points))]
-                    (if (and (< (:min side) point) (< point (:max side)))
-                      (recur (rest n-stack) [(merge default-contact {:point (+ (* point plane) (first (:side n)))})])
-                      (recur (rest n-stack) accum)))
-                  :else
-                  (let [plane (unit (- (second (:side n))
-                                       (first (:side n))))
-                        side1 {:min 0 :min-point (first (:side n))
-                               :max (length (- (second (:side n)) (first (:side n)))) :max-point (second (:side n))}
-                        side2 (let [first-dot (dot plane (first start-points))
-                                    second-dot (dot plane (second start-points))
-                                    temp (sort-by first
-                                                  [[first-dot (+ (* first-dot plane) (first (:side n)))]
-                                                   [second-dot (+ (* second-dot plane) (first (:side n)))]])]
-                                {:min (first (first temp)) :min-point (second (first temp))
-                                 :max (first (second temp)) :max-point (second (second temp))})]
-                    (cond
-                     (and (< (:min side1) (:min side2)) (< (:max side2) (:max side1)))
-                     (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                [(:min-point side2) (:max-point side2)]))
-                     (or (and (zero? (x (:normal n))) (> (y (:normal n)) 0)) (> (x (:normal n)) 0))
-                     (cond
-                      (= (:min side1) (:max side2))
-                      (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
-                      (= (:max side1) (:min side2))
-                      (recur (rest n-stack) [(merge default-contact {:point (:max-point side1)})])
-                      (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)) (< (:max side1) (:max side2)))
-                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                                  [(:min-point side2) (:max-point side1)]))
-                      (and (< (:min side2) (:min side1)) (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
-                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                                  [(:min-point side1) (:max-point side2)]))
-                      :else
-                      (recur (rest n-stack) accum))
-                     :else
-                     (recur (rest n-stack) accum)))))))
-           (let [temp (keep #(if (:point %)
-                               (merge % {:point (transform-about (transform (* (:time %) linear-velocity1) (* (:time %) angular-velocity1))
-                                                                 (:center-of-mass body1)
-                                                                 (:point %))
-                                         :normal (* (rotation (* (:time %)
-                                                                 angular-velocity1))
-                                                    (:normal %))
-                                         :face1 (seq (apply transform-about
-                                                            (transform (* (:time %) linear-velocity1) (* (:time %) angular-velocity1))
-                                                            (:center-of-mass body1)
-                                                            (:face1 %)))
-                                         :face2 (seq (apply transform-about
-                                                            (transform (* (:time %) linear-velocity2) (* (:time %) angular-velocity2))
-                                                            (:center-of-mass body2)
-                                                            (:face2 %)))}))
-                            accum)]
-             temp)))))
-  ([body1 body2 delta]
-     (let 
-         [contacts 
-          (apply concat
-                 (for [shape1 (:shapes body1)
-                       shape2 (:shapes body2)]
-                   (concat (collision shape1 body1 shape2 body2 delta)
-                           (collision shape2 body2 shape1 body1 delta))))
-          min-time (apply min positive-infinity (map #(:time %) contacts))]
-       (filter #(<= min-time (:time %)) contacts)))
-  ([body1 body2]
-     (collision body1 body2 0)))
+(defn get-collisions [body1 body2]
+  (map #(assoc %
+          :body1 (:id body1)
+          :body2 (:id body2))
+       (->> (for [shape1 (:shapes body1)
+                 shape2 (:shapes body2)]
+             (penetration (* (:transform body1) shape1) (* (:transform body2) shape2)))
+           flatten
+           (filter identity))))

@@ -2,29 +2,52 @@
   (:import javax.swing.JFrame
            javax.swing.JPanel
            java.awt.event.ActionListener
-           javax.swing.Timer)
+           javax.swing.Timer
+           java.awt.event.MouseAdapter
+           java.awt.Color)
   (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
   (:use com.curious.pounce.body
         com.curious.pounce.shape
         com.curious.pounce.simulation
         com.curious.pounce.math.matrix
         com.curious.pounce.math.math
-        com.curious.pounce.render))
+        com.curious.pounce.render
+        com.curious.pounce.collision))
 
-(def sim (atom (simulation {:body (assoc (body (transform 225 50 0) (polygon 1 [0 0] [50 0] [50 50] [0 50]))
+(def sim (atom (simulation {:body (assoc (body (transform 225 200 0) (polygon 1 [0 0] [50 0] [50 50] [0 50]))
                                     :angular-momentum 0)
                             :ground (body identity-transform (polygon [0 0] [500 0] [500 10] [0 10]))})))
-
+(def c (atom nil))
+(defmethod process-contact #{:body :ground} [contact]
+           (swap! c (fn [x] (conj x contact)))
+           (println contact)
+           (let [b (get-body @sim (:body1 contact))]
+             (println (apply min-key y (:points (* (:transform b) (first (:shapes b))))))))
+(def paint-timer)
+(def simulation-timer)
 (def panel (proxy [JPanel] [] (paintComponent [g]
-                                              (render @sim g))))
+                                              (render @sim g)
+                                              (when @c
+                                                (doseq [a @c]
+                                                  (.setColor g Color/yellow)
+                                                  (.drawLine g (x (:point a))
+                                                             (- (-> g .getClipBounds .getHeight) (y (:point a)))
+                                                             (+ (x (:point a)) (* 50 (x (:normal a))))
+                                                             (- (-> g .getClipBounds .getHeight) (+ (y (:point a)) (* 50 (y (:normal a))))))
+                                                  (.stop paint-timer)
+                                                  (.stop simulation-timer))))))
+(def mouse-atom (atom nil))
+(.addMouseListener panel (proxy [MouseAdapter] []
+                           (mousePressed [e] (swap! mouse-atom (fn [x] [(.getX e) (.getY e)])))
+                           (mouseReleased [e] (println (- (.getX e) (@mouse-atom 0)) (- (@mouse-atom 1) (.getY e))))))
 (def paint-listener (proxy [ActionListener] []
                       (actionPerformed [_]
+                                       
                                        (.repaint panel))))
 (def simulation-listener (proxy [ActionListener] []
                            (actionPerformed [_]
-                                            
-                                              
-                                            (action @sim :body {:force (matrix 0 0) :torque 1000})
+;                                            (swap! c (fn [x] nil))
+                                            (action @sim :body {:force (matrix 0 -100) :torque 0})
                                             (swap! sim #(simulate % 0.016)))))
 (def frame (doto (JFrame. "Pounce Test")
              (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)

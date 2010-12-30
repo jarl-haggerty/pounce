@@ -167,3 +167,68 @@
 (defmethod add [:circle :matrix] [x y] (apply polygon (:mass x) (+ y (:center x)) (:radius x)))
 (defmethod add [:matrix :polygon] [x y] (apply polygon (:mass y) (map #(+ x %) (:points y))))
 (defmethod add [:matrix :circle] [x y] (apply polygon (:mass y) (+ x (:center y)) (:radius y)))
+
+
+
+(defn penetration
+  "Calculates all the points of collisions that will occur in the next delta seconds between two bodies, neglecting rotation."
+  ([shape1 shape2]
+     (if-let [direction1 (penetration shape1 shape2 (- (:center shape2) (:center shape1)))]
+       (if-let [direction2 (penetration shape2 shape1 (- (:center shape1) (:center shape2)))]
+         (min-key #(:depth (first %)) direction1 direction2)
+         nil)
+       nil))
+  ([shape1 shape2 direction]
+     (loop [n-stack (normals shape1 direction) accum [{:depth positive-infinity :type 0}]]
+       (if-let [n (first n-stack)]
+         (let [proj (projection (- shape2 (-> n :side first)) (:normal n))
+               start-points (:start-points proj)]
+           (if (> (:start proj) 0)
+             nil
+             (let [depth (- (:start proj))
+                   default-contact (with-meta {:normal (:normal n) :depth depth} {:type :contact})]
+               (cond
+                (< (:depth (first accum)) depth)
+                (recur (rest n-stack) accum)
+                (= (count start-points) 1)
+                (let [plane (unit (- (second (:side n))
+                                     (first (:side n))))
+                      side {:min 0 :min-point (first (:side n))
+                            :max (length (- (second (:side n)) (first (:side n)))) :max-point (second (:side n))}
+                      point (dot plane (first start-points))]
+                  (if (and (< (:min side) point) (< point (:max side)))
+                    (recur (rest n-stack) [(merge default-contact {:point (+ (* point plane) (first (:side n))) :debug [side point start-points]})])
+                    (recur (rest n-stack) accum)))
+                :else
+                (let [plane (unit (- (second (:side n))
+                                     (first (:side n))))
+                      side1 {:min 0 :min-point (first (:side n))
+                             :max (length (- (second (:side n)) (first (:side n)))) :max-point (second (:side n))}
+                      side2 (let [first-dot (dot plane (first start-points))
+                                  second-dot (dot plane (second start-points))
+                                  temp (sort-by first
+                                                [[first-dot (+ (* first-dot plane) (first (:side n)))]
+                                                 [second-dot (+ (* second-dot plane) (first (:side n)))]])]
+                              {:min (first (first temp)) :min-point (second (first temp))
+                               :max (first (second temp)) :max-point (second (second temp))})]
+                  (cond
+                   (and (< (:min side1) (:min side2)) (< (:max side2) (:max side1)))
+                   (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first))) :type 2})
+                                              [(:min-point side2) (:max-point side2)]))
+                   (or (and (zero? (x (:normal n))) (> (y (:normal n)) 0)) (> (x (:normal n)) 0))
+                   (cond
+                    (= (:min side1) (:max side2))
+                    (recur (rest n-stack) [(merge default-contact {:point (:min-point side1) :type 3})])
+                    (= (:max side1) (:min side2))
+                    (recur (rest n-stack) [(merge default-contact {:point (:max-point side1) :type 4})])
+                    (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)) (< (:max side1) (:max side2)))
+                    (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first))) :type 5})
+                                               [(:min-point side2) (:max-point side1)]))
+                    (and (< (:min side2) (:min side1)) (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
+                    (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first))) :type 6})
+                                               [(:min-point side1) (:max-point side2)]))
+                    :else
+                    (recur (rest n-stack) accum))
+                   :else
+                   (recur (rest n-stack) accum)))))))
+         accum))))

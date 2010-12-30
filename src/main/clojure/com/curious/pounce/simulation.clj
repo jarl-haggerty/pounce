@@ -4,7 +4,8 @@
   (:use com.curious.pounce.body
 	com.curious.pounce.math.math
         com.curious.pounce.math.matrix
-	com.curious.pounce.render))
+	com.curious.pounce.render
+        com.curious.pounce.collision))
 
 (def default-action {:force 0 :torque 0 :linear-impulse 0 :angular-impulse 0})
 
@@ -45,7 +46,7 @@
         contacts (loop [bodies (vals new-bodies) accum ()]
                    (if-let [rest-bodies (next bodies)]
                      (recur (rest bodies) (apply concat accum (for [body2 rest-bodies]
-                                                                (collision (first bodies) body2))))
+                                                                (get-collisions (first bodies) body2))))
                      accum))
         _ (comment (vec (for [bodies (map #(nthnext (vals new-bodies) %) (range (count new-bodies)))
                               body2 (rest bodies)]
@@ -97,10 +98,8 @@
                                               (:mass body2))
                                            (/ (:angular-momentum body2)
                                               (:mass body2))))))]
-    (comment (if (seq contacts)
-               (let [b (get-body sim (:body2 (first contacts)))]
-                 (println (apply min-key y (:points (* (:transform b) (first (:shapes b))))))
-                 (println contacts))))
+    (doseq [contact contacts]
+      (process-contact contact))
     (assoc sim
       :bodies new-bodies
       :actions (atom (into {} (map #(vector % default-action) (keys new-bodies)))))))
