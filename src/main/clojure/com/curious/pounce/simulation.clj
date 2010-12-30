@@ -26,7 +26,7 @@
 (defn simulation
   ([] (simulation []))
   ([bodies] (simulation bodies (matrix 0 0)))
-  ([bodies gravity] (with-meta {:bodies bodies
+  ([bodies gravity] (with-meta {:bodies (into {} (map #(vector (first %) (assoc (second %) :id (first %))) bodies))
                                 :gravity gravity
                                 :actions (atom (into {} (map #(vector % default-action) (keys bodies))))}
                       {:type :simulation})))
@@ -42,9 +42,14 @@
                                                  {:linear-momentum (+ (* delta (:force action)) (:linear-impulse action))
                                                   :angular-momentum (+ (* delta (:torque action)) (:angular-impulse action))})
                                      delta)}))
-        contacts (vec (for [bodies (map #(nthnext (vals new-bodies) %) (range (count new-bodies)))
-                            body2 (rest bodies)]
-                        (collision (first bodies) body2)))
+        contacts (loop [bodies (vals new-bodies) accum ()]
+                   (if-let [rest-bodies (next bodies)]
+                     (recur (rest bodies) (apply concat accum (for [body2 rest-bodies]
+                                                                (collision (first bodies) body2))))
+                     accum))
+        _ (comment (vec (for [bodies (map #(nthnext (vals new-bodies) %) (range (count new-bodies)))
+                              body2 (rest bodies)]
+                          (collision (first bodies) body2))))
         _ (comment 
                    G (apply stack (for [index (range (count contacts))
                                         :let [contact (contacts i)
@@ -92,8 +97,10 @@
                                               (:mass body2))
                                            (/ (:angular-momentum body2)
                                               (:mass body2))))))]
-    (if (seq contacts)
-      (println contacts))
+    (comment (if (seq contacts)
+               (let [b (get-body sim (:body2 (first contacts)))]
+                 (println (apply min-key y (:points (* (:transform b) (first (:shapes b))))))
+                 (println contacts))))
     (assoc sim
       :bodies new-bodies
       :actions (atom (into {} (map #(vector % default-action) (keys new-bodies)))))))

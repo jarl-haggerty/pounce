@@ -126,7 +126,14 @@
                   (< contact-time (:time (first accum)))
                   (recur (rest n-stack) accum)
                   (= (count start-points) 1)
-                  (recur (rest n-stack) [(merge default-contact {:point (first start-points)})])
+                  (let [plane (unit (- (second (:side n))
+                                       (first (:side n))))
+                        side {:min 0 :min-point (first (:side n))
+                               :max (length (- (second (:side n)) (first (:side n)))) :max-point (second (:side n))}
+                        point (dot plane (first start-points))]
+                    (if (and (< (:min side) point) (< point (:max side)))
+                      (recur (rest n-stack) [(merge default-contact {:point (+ (* point plane) (first (:side n)))})])
+                      (recur (rest n-stack) accum)))
                   :else
                   (let [plane (unit (- (second (:side n))
                                        (first (:side n))))
@@ -140,21 +147,21 @@
                                 {:min (first (first temp)) :min-point (second (first temp))
                                  :max (first (second temp)) :max-point (second (second temp))})]
                     (cond
-                     (= (:min side1) (:max side2))
-                     (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
-                     (= (:max side1) (:min side2))
-                     (recur (rest n-stack) [(merge default-contact {:point (:max-point side1)})])
                      (and (< (:min side1) (:min side2)) (< (:max side2) (:max side1)))
                      (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
                                                 [(:min-point side2) (:max-point side2)]))
                      (or (and (zero? (x (:normal n))) (> (y (:normal n)) 0)) (> (x (:normal n)) 0))
                      (cond
+                      (= (:min side1) (:max side2))
+                      (recur (rest n-stack) [(merge default-contact {:point (:min-point side1)})])
+                      (= (:max side1) (:min side2))
+                      (recur (rest n-stack) [(merge default-contact {:point (:max-point side1)})])
                       (and (< (:min side1) (:min side2)) (< (:min side2) (:max side1)) (< (:max side1) (:max side2)))
                       (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                 [(:min-point side2) (:max-point side1)]))
+                                                                  [(:min-point side2) (:max-point side1)]))
                       (and (< (:min side2) (:min side1)) (< (:min side1) (:max side2)) (< (:max side2) (:max side1)))
                       (recur (rest n-stack) (map #(merge default-contact {:point % :face1 (:side n) :face2 (map + start-points (repeat 2 (-> n :side first)))})
-                                                 [(:min-point side1) (:max-point side2)]))
+                                                                  [(:min-point side1) (:max-point side2)]))
                       :else
                       (recur (rest n-stack) accum))
                      :else
@@ -175,12 +182,7 @@
                                                             (:center-of-mass body2)
                                                             (:face2 %)))}))
                             accum)]
-             (when (= 11 (:id body1)) (println) (println) (println linear-velocity1))
-             (doseq [x accum y x :when (= 11 (:id body1))] (println y))
-             (when (= 11 (:id body1)) (println))
-             (doseq [x temp y x :when (= 11 (:id body1))] (println y))
-             temp
-                 )))))
+             temp)))))
   ([body1 body2 delta]
      (let 
          [contacts 
