@@ -1,7 +1,5 @@
 (ns com.curious.pounce.render
   "Defines the render multi function.")
 
-(defmulti render
-  "Multi function for rendering, dispatches on :type in metadata."
-  (fn [subject & _] (:type (meta subject))))
-
+(defprotocol Renderable
+  (render [this graphics]))
