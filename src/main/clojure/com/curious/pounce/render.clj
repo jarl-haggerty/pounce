@@ -1,5 +1,5 @@
 (ns com.curious.pounce.render
-  "Defines the render multi function.")
+  "Defines the Renderable protocol.")
 
 (defprotocol Renderable
   (render [this graphics]))

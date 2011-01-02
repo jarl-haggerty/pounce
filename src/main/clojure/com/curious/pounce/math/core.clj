@@ -44,7 +44,7 @@
 (defn round
   "Rounds x to the nearest whole number."
   [x] (int (+ x 0.5)))
-(defn circular-vector
+(defn circular-indexer
   "Returns a function which takes an integer n and returns the nth item in coll modulus it's length."
   [coll] (fn [n] (coll (unchecked-remainder n (count coll)))))
 (defn eps=

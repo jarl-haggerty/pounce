@@ -3,11 +3,6 @@
   (:refer-clojure :exclude [set])
   (:require [com.curious.pounce.math.core :as math]))
 
-(defprotocol Transformable
-  (transform [this t])
-  (translate [this t])
-  (rotate [this t]))
-
 (defprotocol Table
   (data [this])
   (rows [this])
@@ -16,7 +11,7 @@
 (def add)
 (def mul)
 
-(deftype Matrix [table]
+(deftype Matrix [array]
   Object
   (equals [this that] (and (= (rows this) (rows that))
                            (= (columns this) (columns that))
@@ -49,16 +44,12 @@
                      (.append builder (columns this))
                      (.append builder "")
                      (.toString builder)))
-  Transformable
-  (transform [this t] (add (mul this (:rotation t)) (:translation t)))
-  (translate [this t] (add this t))
-  (rotate [this t] (mul this t))
   Table
-  (data [this] table)
+  (data [this] array)
   (rows [this] (alength (data this)))
   (columns [this] (alength (aget (data this) 0))))
 
-(defn copy [this]
+(defn clone [this]
   (let [new-data (make-array Float/TYPE (rows this) (columns this))]
     (loop [row (int 0)]
       (when (< row (rows this))
@@ -205,7 +196,7 @@
                       (set result 1 0 (- x))
                       result))
 
-(defn matrix
+(defn create
   "Returns M if it's a matrix, otherwise (matrix M) is returned."
   [& args] (cond (instance? Matrix (first args)) (first args)
                  (sequential? (first args)) (let [new-data (make-array Float/TYPE (count (first args)) (count args))]
@@ -229,11 +220,16 @@
                      (aset-float 0 1 (- (math/sin theta)))
                      (aset-float 1 1 (math/cos theta)))))
 
-(defn transform
+(defrecord Transformation [translation rotation])
+
+(defn transformation
   "Creates a transform from the specified displacement and rotation angle in radians."
-  ([x y rotation] (transform (matrix x y) rotation))
-  ([translation rotation] {:translation translation :rotation (rotation-matrix rotation)}))
+  ([x y rotation] (transformation (matrix x y) rotation))
+  ([translation rotation] (Transformation. translation (rotation-matrix rotation))))
 
 (def
  ^{:doc "The identity transform."}
  identity-transform (transform 0 0 0))
+
+(defn transform [this t]
+  (add (mul this (:rotation t)) (:translation t)))
