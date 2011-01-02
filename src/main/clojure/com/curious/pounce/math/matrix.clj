@@ -1,128 +1,238 @@
 (ns com.curious.pounce.math.matrix
   "Defines the matrix and transform data structures and the functions to manipulate them."
-  (:use com.curious.pounce.math.math))
+  (:refer-clojure :exclude [set])
+  (:require [com.curious.pounce.math.core :as math]))
 
-(defprotocol MatrixProtocol
-  (add [this that])
-  (add-in-place [this that])
-  (sub [this] [this that])
-  (sub-in-place [this] [this that])
-  (mul [this that])
-  (div [this that])
-  (get-value [this row column])
-  (set-value [this row column value])
-  (x [this])
-  (y [this])
-  (cross [this that])
-  (dot [this that])
-  (length [this])
-  (length-squared [this])
-  (unit [this]))
+(defprotocol Transformable
+  (transform [this t])
+  (translate [this t])
+  (rotate [this t]))
 
-(defrecord Matrix [data height width]
+(defprotocol Table
+  (data [this])
+  (rows [this])
+  (columns [this]))
+
+(def add)
+(def mul)
+
+(deftype Matrix [table]
   Object
-  (equals [this that] (and (= height (get-height that))
-                           (= width (get-hidth that))
-                           (loop [index (int 0)]
-                             (if (< index (alength data))
-                               (if (eps= (aget ^floats data index) (aget ^floats (getData that) index))
-                                 (recur (unchecked-inc index))
+  (equals [this that] (and (= (rows this) (rows that))
+                           (= (columns this) (columns that))
+                           (loop [row (int 0)]
+                             (if (< row (rows this))
+                               (if (loop [column (int 0)]
+                                     (if (< column (columns this))
+                                       (if (math/eps= (aget (data this) row column) (aget (data that) row column))
+                                         (recur (unchecked-inc column))
+                                         false)
+                                       true))
+                                 (recur (unchecked-inc row))
                                  false)
                                true))))
-  Container2D
-  (getData [this] data)
-  (getHeight [this] height)
-  (getWidth [this] width)
-  (getValue [this row column] (aget ^floats data (unchecked-add row (unchecked-multiply column height))))
-  (setValue [this row column value] (aset-float data (unchecked-add row (unchecked-multiply column height)) value))
-  (add [this that]
-       (cond
-        (number? that) (Matrix. (amap data index new-data (add (aget ^floats data index) that)) height width)
-        (extends? Composeable that) (Matrix. (amap data index new-data (add (aget ^floats data index) (aget ^floats (getData that) index))) height width)))
-  (sub [this] (Matrix. (amap data index new-data (unchecked-negate (aget ^floats data index))) height width))
-  (sub [this that] (Matrix. (amap data index new-data (unchecked-subtract (aget ^floats data index) (aget ^floats (getData that) index))) height width))
-  (sub-in-place [this]
-                (loop [index (int 0)]
-                  (when (< index (alength data))
-                    (aset-float data index (unchecked-negate (aget ^floats data index)))
-                    (recur (unchecked-inc index)))))
-  (mul [this that] (cond
-                    (number? that) (Matrix. (amap data index new-data (unchecked-multiply (aget ^floats data index) (aget ^floats (getData that) index))) height width)
-                    :else (let [result (Matrix. (float-array (unchecked-multiply height (getWidth y))) height (getWidth y))]
-                            (loop [r (int 0)]
-                              (when (< r height)
-                                (loop [c (int 0)]
-                                  (when (< c (getWidth y))
-                                    (loop [i (int 0)]
-                                      (when (< i width)
-                                        (setValue result r c
-                                                  (+ (mget result r c)
-                                                     (* (mget this r i)
-                                                        (mget that i c))))
-                                        (recur (unchecked-inc i))))
-                                    (recur (unchecked-inc c))))
-                                (recur (unchecked-inc r))))
-                            result)))
-  (div [this that] (Matrix. (amap data index new-data (unchecked-divide (aget ^floats data index) that)) height width))
-  (x [this] (getValue this 0 0))
-  (y [this] (getValue this 1 0))
-  (cross [this that] (unchecked-subtract (unchecked-multiply (x this) (y that))
-                                         (unchecked-multiply (x that) (y this))))
-  (dot [this that] (unchecked-add (unchecked-multiply (x this) (x that))
-                                  (unchecked-multiply (y this) (y that))))
-  (length [this] (sqrt (lengthSquared this)))
-  (lengthSquared [this] (areduce data index accum 0 (unchecked-add accum (pow (aget ^floats data index) 2))))
-  (unit [this]
-        (let [len (length this)]
-          (Matrix. (amap data index new-data (unchecked-divide (aget ^floats data index) len)))))
-  (normal [this] (let [len (length this)]
-                   (Matrix. (doto (float-array 2)
-                              (aset-float 0 (y this))
-                              (aset-float 1 (unchecked-negate (x this)))))))
+  (toString [this] (let [builder (StringBuilder.)]
+                     (.append builder "[")
+                     (loop [column (int 0)]
+                       (when (< column (columns this))
+                         (loop [row (int 0)]
+                           (when (< row (rows this))
+                             (.append builder (aget (data this) row column))
+                             (if (not (and (= column (dec (columns this)))
+                                           (= row (dec (rows this)))))
+                               (.append builder " "))
+                             (recur (unchecked-inc row))))
+                         (recur (unchecked-inc column))))
+                     (.append builder "] rows: ")
+                     (.append builder (rows this))
+                     (.append builder " columns: ")
+                     (.append builder (columns this))
+                     (.append builder "")
+                     (.toString builder)))
   Transformable
-  (transform [this trans] (add (mul this (getRotation trans)) (getTranslation trans)))
-  (translate [this translation] (add this translation))
-  (rotate [this rotation] (mul this rotation)))
+  (transform [this t] (add (mul this (:rotation t)) (:translation t)))
+  (translate [this t] (add this t))
+  (rotate [this t] (mul this t))
+  Table
+  (data [this] table)
+  (rows [this] (alength (data this)))
+  (columns [this] (alength (aget (data this) 0))))
 
-(defn matrix [& args]
-  (Matrix. (float-array args) (count args) 1))
-(defn mat
+(defn copy [this]
+  (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+    (loop [row (int 0)]
+      (when (< row (rows this))
+        (loop [column (int 0)]
+          (when (< column (columns this))
+            (aset-float new-data row column (aget (data this) row column))
+            (recur (unchecked-inc column))))
+        (recur (unchecked-inc row))))
+    (Matrix. new-data)))
+
+(defn set [this row column source]
+  (cond (number? source) (aset-float (data this) row column source)
+        (instance? Matrix source) (loop [row-index (int 0)]
+                                    (when (< row-index (columns source))
+                                      (loop [column-index (int 0)]
+                                        (when (< column-index (rows source))
+                                          (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
+                                                      (aget (data source) row-index column-index))
+                                          (recur (unchecked-inc column-index))))
+                                      (recur (unchecked-inc row-index)))))
+  this)
+
+(defn- add-in-place [this that]
+  (cond (number? that) (loop [row (int 0)]
+                         (when (< row (rows this))
+                           (loop [column (int 0)]
+                             (when (< column (columns this))
+                               (aset-float (data this) row column (+ (aget ^floats (data this) row column) that))
+                               (recur (unchecked-inc column))))
+                           (recur (unchecked-inc row))))
+        (instance? Matrix that) (loop [row (int 0)]
+                                  (when (< row (rows this))
+                                    (loop [column (int 0)]
+                                      (when (< column (columns this))
+                                        (aset-float (data this) row column (+ (aget ^floats (data this) row column) (aget ^floats (data that) row column)))
+                                        (recur (unchecked-inc column))))
+                                    (recur (unchecked-inc row)))))
+  this)
+
+(defn add
+  ([this that]
+     (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+       (cond (number? that) (loop [row (int 0)]
+                              (when (< row (rows this))
+                                (loop [column (int 0)]
+                                  (when (< column (columns this))
+                                    (aset-float new-data row column (+ (aget ^floats (data this) row column) that))
+                                    (recur (unchecked-inc column))))
+                                (recur (unchecked-inc row))))
+             (instance? Matrix that) (loop [row (int 0)]
+                                      (when (< row (rows this))
+                                        (loop [column (int 0)]
+                                          (when (< column (columns this))
+                                            (aset-float new-data row column (+ (aget (data this) row column) (aget (data that) row column)))
+                                            (recur (unchecked-inc column))))
+                                        (recur (unchecked-inc row)))))
+       (Matrix. new-data)))
+  ([this that & others]
+     (reduce add-in-place (add this that) others)))
+
+(defn- sub-in-place [this that]
+  (cond (number? that) (loop [row (int 0)]
+                         (when (< row (rows this))
+                           (loop [column (int 0)]
+                             (when (< column (columns this))
+                               (aset-float (data this) row column (- (aget ^floats (data this) row column) that))
+                               (recur (unchecked-inc column))))
+                           (recur (unchecked-inc row))))
+        (instance? Matrix that) (loop [row (int 0)]
+                                  (when (< row (rows this))
+                                    (loop [column (int 0)]
+                                      (when (< column (columns this))
+                                        (aset-float (data this) row column (- (aget ^floats (data this) row column) (aget ^floats (data that) row column)))
+                                        (recur (unchecked-inc column))))
+                                    (recur (unchecked-inc row)))))
+  this)
+
+(defn sub
+  ([this]
+     (cond (number? this) (- this) 
+           (instance? Matrix this) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+                                     (loop [row (int 0)]
+                                       (when (< row (rows this))
+                                         (loop [column (int 0)]
+                                           (when (< column (columns this))
+                                             (aset-float new-data row column (- (aget ^floats (data this) row column)))
+                                             (recur (unchecked-inc column))))
+                                         (recur (unchecked-inc row))))
+                                     (Matrix. new-data))))
+  ([this that]
+     (add-in-place (sub that) this))
+    ([this that & others]
+       (reduce sub-in-place (sub this that) others)))
+
+(defn mul
+  [this that]
+  (cond (number? that) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+                         (loop [row (int 0)]
+                           (when (< row (rows this))
+                             (loop [column (int 0)]
+                               (when (< column (columns this))
+                                 (aset-float new-data row column (* (aget ^floats (data this) row column) that))
+                                 (recur (unchecked-inc column))))
+                             (recur (unchecked-inc row))))
+                         (Matrix. new-data))
+        (instance? Matrix that) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
+                                  (loop [row (int 0)]
+                                    (when (< row (rows this))
+                                      (loop [column (int 0)]
+                                        (when (< column (columns that))
+                                          (loop [index (int 0)]
+                                            (when (< index (columns this))
+                                              (aset-float new-data row column (+ (aget ^float new-data row column)
+                                                                                 (* (aget ^float (data this) row index)
+                                                                                    (aget ^float (data that) index column))))
+                                              (recur (unchecked-inc index))))
+                                          (recur (unchecked-inc column))))
+                                      (recur (unchecked-inc row))))
+                                  (Matrix. new-data))))
+
+(defn div [this that] (mul this (/ that)))
+
+(defn x [this] (aget ^float (data this) 0 0))
+(defn y [this] (aget ^float (data this) 1 0))
+
+(defn dot [this that] (loop [row (int 0) accum 0]
+                        (if (< row (rows this))
+                          (recur (unchecked-inc row) (+ accum (* (aget ^float (data this) row 0)
+                                                                 (aget ^float (data that) row 0))))
+                          accum)))
+
+(defn cross [this that] (- (* (x this) (y that)) (* (x that) (y this))))
+
+(defn length-squared [this] (dot this this))
+
+(defn length [this] (Math/sqrt (length-squared this)))
+
+(defn unit [this] (div this (length this)))
+
+(defn normal [this] (let [result (unit this)
+                          x (x result)
+                          y (y result)]
+                      (set result 0 0 y)
+                      (set result 1 0 (- x))
+                      result))
+
+(defn matrix
   "Returns M if it's a matrix, otherwise (matrix M) is returned."
-  [M & args] (cond
-              (extends? MatrixProtocol M) M
-              (sequential? M) (apply matrix M)
-              :else (apply matrix M args)))
+  [& args] (cond (instance? Matrix (first args)) (first args)
+                 (sequential? (first args)) (let [new-data (make-array Float/TYPE (count (first args)) (count args))]
+                                              (dorun (map-indexed (fn [column column-data]
+                                                                    (dorun (map-indexed (fn [row value]
+                                                                                          (aset-float new-data row column value))
+                                                                                        column-data)))
+                                                                  args))
+                                              (Matrix. new-data))
+                 (number? (first args)) (let [new-data (make-array Float/TYPE (count args) 1)]
+                                          (dorun (map-indexed (fn [row value]
+                                                                (aset-float new-data row 0 value))
+                                                              args))
+                                          (Matrix. new-data))))
 
 (defn rotation-matrix
   "Calculates the rotation matrix for theta radians"
-  [theta] (Matrix. (doto (float-array 4)
-                     (aset-float 0 (cos theta))
-                     (aset-float 1 (sin theta))
-                     (aset-float 2 (unchecked-negate (sin theta)))
-                     (aset-float 3 (cos theta)))
-                   2 2))
+  [theta] (Matrix. (doto (make-array Float/TYPE 2 2)
+                     (aset-float 0 0 (math/cos theta))
+                     (aset-float 1 0 (math/sin theta))
+                     (aset-float 0 1 (- (math/sin theta)))
+                     (aset-float 1 1 (math/cos theta)))))
 
-(defprotocol TransformationProtocol
-  (getTranslation [this])
-  (getRotation [this]))
-
-(defprotocol Transformable
-  (transform [this trans])
-  (translate [this translation])
-  (rotate [this rotation]))
-
-(deftype Transformation [translation rotation]
-  Object
-  (equals [this that] (and (equals translation (getTranslation that))
-                           (equals rotation (getRotation that))))
-  TransformationProtocol
-  (getTranslation [this] translation)
-  (getRotation [this] rotation))
-
-(defn transformation
+(defn transform
   "Creates a transform from the specified displacement and rotation angle in radians."
-  ([x y angle] (transform (matrix x y) angle))
-  ([displacement angle] (Transformation. displacement angle)))
+  ([x y rotation] (transform (matrix x y) rotation))
+  ([translation rotation] {:translation translation :rotation (rotation-matrix rotation)}))
 
 (def
  ^{:doc "The identity transform."}

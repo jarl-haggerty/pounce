@@ -22,6 +22,7 @@
         <extensions>true</extensions>
         <configuration>
           <script>src/main/clojure/com/curious/pounce/core.clj</script>
+          <warnOnReflection/>
         </configuration>
       </plugin>
     </plugins>
