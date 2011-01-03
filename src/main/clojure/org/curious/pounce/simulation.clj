@@ -1,11 +1,10 @@
-(ns com.curious.pounce.simulation
+(ns org.curious.pounce.simulation
   (:import java.awt.Color)
-  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
-  (:use com.curious.pounce.body
-	com.curious.pounce.math.math
-        com.curious.pounce.math.matrix
-	com.curious.pounce.render
-        com.curious.pounce.collision))
+  (:use org.curious.pounce.body
+	org.curious.pounce.math.math
+        org.curious.pounce.math.matrix
+	org.curious.pounce.render
+        org.curious.pounce.collision))
 
 (def default-action {:force 0 :torque 0 :linear-impulse 0 :angular-impulse 0})
 

@@ -1,4 +1,4 @@
-(ns com.curious.pounce.math.core
+(ns org.curious.pounce.math.core
   "Math functions and constants.")
 
 (def
@@ -46,9 +46,22 @@
   [x] (int (+ x 0.5)))
 (defn circular-indexer
   "Returns a function which takes an integer n and returns the nth item in coll modulus it's length."
-  [coll] (fn [n] (coll (unchecked-remainder n (count coll)))))
+  [coll] (fn [n] (coll (mod n (count coll)))))
 (defn eps=
   "Returns true if the difference between two numbers is less than epsilon."
   [x y] (or (= positive-infinity x y)
             (= negative-infinity x y)
             (< (abs (- x y)) eps)))
+(defn eps<
+  "Returns true if the difference between two numbers is less than epsilon."
+  [x y] (and (not (eps= x y))
+             (< x y)))
+(defn eps<=
+  "Returns true if the difference between two numbers is less than epsilon."
+  [x y] (or (eps< x y) (eps= x y)))
+(defn eps>
+  "Returns true if the difference between two numbers is less than epsilon."
+  [x y] (not (eps<= x y)))
+(defn eps>=
+  "Returns true if the difference between two numbers is less than epsilon."
+  [x y] (not (eps< x y)))

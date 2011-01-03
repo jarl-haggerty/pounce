@@ -1,7 +1,7 @@
-(ns com.curious.pounce.math.matrix
+(ns org.curious.pounce.math.matrix
   "Defines the matrix and transform data structures and the functions to manipulate them."
   (:refer-clojure :exclude [set])
-  (:require [com.curious.pounce.math.core :as math]))
+  (:require [org.curious.pounce.math.core :as math]))
 
 (defprotocol Table
   (data [this])
@@ -185,16 +185,9 @@
 
 (defn length-squared [this] (dot this this))
 
-(defn length [this] (Math/sqrt (length-squared this)))
+(defn length [this] (math/sqrt (length-squared this)))
 
 (defn unit [this] (div this (length this)))
-
-(defn normal [this] (let [result (unit this)
-                          x (x result)
-                          y (y result)]
-                      (set result 0 0 y)
-                      (set result 1 0 (- x))
-                      result))
 
 (defn create
   "Returns M if it's a matrix, otherwise (matrix M) is returned."
@@ -220,16 +213,20 @@
                      (aset-float 0 1 (- (math/sin theta)))
                      (aset-float 1 1 (math/cos theta)))))
 
+(defn rotate [this theta]
+  (create (- (* (x this) (math/cos theta)) (* (y this) (math/sin theta)))
+          (+ (* (x this) (math/sin theta)) (* (y this) (math/cos theta)))))
+
 (defrecord Transformation [translation rotation])
 
 (defn transformation
   "Creates a transform from the specified displacement and rotation angle in radians."
-  ([x y rotation] (transformation (matrix x y) rotation))
+  ([x y rotation] (transformation (create x y) rotation))
   ([translation rotation] (Transformation. translation (rotation-matrix rotation))))
 
 (def
  ^{:doc "The identity transform."}
- identity-transform (transform 0 0 0))
+ identity-transform (transformation 0 0 0))
 
 (defn transform [this t]
-  (add (mul this (:rotation t)) (:translation t)))
+  (add (mul (:rotation t) this) (:translation t)))

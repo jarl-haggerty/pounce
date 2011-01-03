@@ -1,11 +1,10 @@
-(ns com.curious.pounce.body
+(ns org.curious.pounce.body
   "Defines the body structure and methods for simulating forces on it and calculating collisions."
   (:import java.awt.Color)
-  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
-  (:require [com.curious.pounce.shape :as shape]
-            [com.curious.pounce.math.math :as math]
-            [com.curious.pounce.math.matrix :as matrix]
-            [com.curious.pounce.render :as render]))
+  (:require [org.curious.pounce.shape :as shape]
+            [org.curious.pounce.math.math :as math]
+            [org.curious.pounce.math.matrix :as matrix]
+            [org.curious.pounce.render :as render]))
 
 (defrecord Body [transformation shapes moment-of-inertia linear-momentum linear-velocity angular-momentum angular-velocity mass center-of-mass kinematic]
   render/Renderable
@@ -20,7 +19,7 @@
         mass (reduce + (map :mass shapes))
         center-of-mass (if (math/is-infinite mass)
                          (matrix/div (reduce matrix/add (map :center shapes)) (count shapes))
-                         (matrix/div (reduce matrix/add (map #(* (:center %) (:mass %)) shapes)) (count shapes)))]
+                         (matrix/div (reduce matrix/add (map #(matrix/mul (:center %) (:mass %)) shapes)) (count shapes)))]
     (Body. trans
            shapes
            (if (math/is-infinite mass)
@@ -38,7 +37,13 @@
            false)))
 
 (defn update [this delta]
-  (let [rotation-matrix (matrix/rotation (* delta (:angular-velocity this)))]
+  (let [rotation-matrix (matrix/rotation (* delta (:angular-velocity this)))
+        new-linear-velocity (if (:kinematic this)
+                              (:linear-velocity this)
+                              (matrix/div (:linear-momentum this) (:mass this)))
+        new-angular-velocity (if (:kinematic this)
+                              (:angular-velocity this)
+                              (/ (:angular-momentum this) (:moment-of-inertia this)))]
     (assoc this
       :transform (let [center (matrix/transform (:center-of-mass this) (:transformation this))]
                    (matrix/transformation (matrix/add (:translation transform)
@@ -49,8 +54,8 @@
                                                       (:translation transform)
                                                       center)
                                           (matrix/mul (:rotation transform) rotation-matrix)))
-      :linear-velocity (matrix/div (:linear-momentum this) (:mass this))
-      :angular-velocity (/ (:angular-momentum this) (:moment-of-inertia this)))))
+      :linear-velocity new-linear-velocity
+      :angular-velocity new-angular-velocity)))
 
 (defn collisions [this that]
   (collisions [this that] (map #(assoc %
@@ -62,3 +67,5 @@
                                                        (shape/transform (:transformation that) shape2)))
                                     flatten
                                     (filter identity)))))
+
+(defmulti process-contact #(hash-set (:body1 %) (:body2 %)))

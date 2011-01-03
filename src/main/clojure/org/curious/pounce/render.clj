@@ -1,4 +1,4 @@
-(ns com.curious.pounce.render
+(ns org.curious.pounce.render
   "Defines the Renderable protocol.")
 
 (defprotocol Renderable

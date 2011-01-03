@@ -1,18 +1,17 @@
-(ns com.curious.pounce.core
+(ns org.curious.pounce.core
   (:import javax.swing.JFrame
            javax.swing.JPanel
            java.awt.event.ActionListener
            javax.swing.Timer
            java.awt.event.MouseAdapter
            java.awt.Color)
-  (:refer-clojure :exclude [+ - * / < <= > >= = not= max-key min-key])
-  (:use com.curious.pounce.body
-        com.curious.pounce.shape
-        com.curious.pounce.simulation
-        com.curious.pounce.math.matrix
-        com.curious.pounce.math.math
-        com.curious.pounce.render
-        com.curious.pounce.collision))
+  (:use org.curious.pounce.body
+        org.curious.pounce.shape
+        org.curious.pounce.simulation
+        org.curious.pounce.math.matrix
+        org.curious.pounce.math.core
+        org.curious.pounce.render
+        org.curious.pounce.collision))
 
 (def sim (atom (simulation {:body (assoc (body (transform 225 200 0) (polygon 1 [0 0] [50 0] [50 50] [0 50]))
                                     :angular-momentum 0)
