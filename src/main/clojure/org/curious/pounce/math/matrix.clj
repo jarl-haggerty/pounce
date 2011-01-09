@@ -11,6 +11,9 @@
 (def add)
 (def mul)
 
+(defprotocol Matrix
+  (mul [x y]))
+
 (deftype Matrix [array]
   Object
   (equals [this that] (and (= (rows this) (rows that))
@@ -44,10 +47,32 @@
                      (.append builder (columns this))
                      (.append builder "")
                      (.toString builder)))
+  Matrix
+  
   Table
   (data [this] array)
   (rows [this] (alength (data this)))
   (columns [this] (alength (aget (data this) 0))))
+
+(deftype SparseMatrix [submatrices]
+  Object
+  (equals [this that] (for [[x y] (keys submatrices)]
+                        )
+          (every? identity )
+
+          (and (= (rows this) (rows that))
+                           (= (columns this) (columns that))
+                           (loop [row (int 0)]
+                             (if (< row (rows this))
+                               (if (loop [column (int 0)]
+                                     (if (< column (columns this))
+                                       (if (math/eps= (aget (data this) row column) (aget (data that) row column))
+                                         (recur (unchecked-inc column))
+                                         false)
+                                       true))
+                                 (recur (unchecked-inc row))
+                                 false)
+                               true)))))
 
 (defn clone [this]
   (let [new-data (make-array Float/TYPE (rows this) (columns this))]
@@ -222,7 +247,9 @@
 (defn transformation
   "Creates a transform from the specified displacement and rotation angle in radians."
   ([x y rotation] (transformation (create x y) rotation))
-  ([translation rotation] (Transformation. translation (rotation-matrix rotation))))
+  ([translation rotation] (Transformation. translation (if (number? rotation)
+                                                         (rotation-matrix rotation)
+                                                         rotation))))
 
 (def
  ^{:doc "The identity transform."}

@@ -5,26 +5,26 @@
             [org.curious.pounce.render :as render]
             [clojure.test :as test]))
 
-(def test-polygon-1 (com.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1 0) (matrix/create 1 1) (matrix/create 0 1)]
+(def test-polygon-1 (org.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1 0) (matrix/create 1 1) (matrix/create 0 1)]
                               math/positive-infinity
                               (matrix/create 1/2 1/2)
                               [(matrix/create 0 -1) (matrix/create 1 0) (matrix/create 0 1) (matrix/create -1 0)]
                               math/positive-infinity))
-(def test-polygon-2 (com.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1/2 0) (matrix/create 1/2 1/2) (matrix/create 0 1/2)]
+(def test-polygon-2 (org.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1/2 0) (matrix/create 1/2 1/2) (matrix/create 0 1/2)]
                               math/positive-infinity
                               (matrix/create 1/4 1/4)
                               [(matrix/create 0 -1) (matrix/create 1 0) (matrix/create 0 1) (matrix/create -1 0)]
                               math/positive-infinity))
-(def test-polygon-3 (com.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1 0) (matrix/create 1 1) (matrix/create 0 1)]
+(def test-polygon-3 (org.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1 0) (matrix/create 1 1) (matrix/create 0 1)]
                               1
                               (matrix/create 1/2 1/2)
                               [(matrix/create 0 -1) (matrix/create 1 0) (matrix/create 0 1) (matrix/create -1 0)]
                               1/6))
-(def test-circle-1 (com.curious.pounce.shape.Circle. (matrix/create 0 0)
+(def test-circle-1 (org.curious.pounce.shape.Circle. (matrix/create 0 0)
                             math/positive-infinity
                             1
                             math/positive-infinity))
-(def test-circle-2 (com.curious.pounce.shape.Circle. (matrix/create 0 0)
+(def test-circle-2 (org.curious.pounce.shape.Circle. (matrix/create 0 0)
                             1
                             1
                             1/2))
