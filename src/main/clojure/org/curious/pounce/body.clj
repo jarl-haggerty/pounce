@@ -6,7 +6,7 @@
             [org.curious.pounce.math.matrix :as matrix]
             [org.curious.pounce.render :as render]))
 
-(defrecord Body [transformation shapes moment-of-inertia linear-momentum linear-velocity angular-momentum angular-velocity mass center-of-mass kinematic]
+(defrecord Body [transformation shapes moment-of-inertia linear-momentum linear-velocity angular-momentum angular-velocity mass center-of-mass kinematic live]
   render/Renderable
   (render [this graphics] (doseq [shape shapes]
                             (render/render (shape/transform shape transformation) graphics))))
@@ -34,7 +34,8 @@
            0
            mass
            center-of-mass
-           false)))
+           false
+           true)))
 
 (defn update [this delta]
   (let [new-linear-velocity (if (:kinematic this)

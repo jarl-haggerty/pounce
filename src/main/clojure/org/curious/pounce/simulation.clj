@@ -44,57 +44,56 @@
                        (if-let [rest-bodies (next bodies)]
                          (recur (rest bodies) (concat accum (map #(body/collisions (first bodies) %) rest-bodies)))
                          accum))
-           
-            _ (comment (vec (for [bodies (map #(nthnext (vals new-bodies) %) (range (count new-bodies)))
-                                  body2 (rest bodies)]
-                              (collision (first bodies) body2))))
-            _ (comment 
-                G (apply stack (for [index (range (count contacts))
-                                     :let [contact (contacts i)
-                                           body1 (get sim (:body1 contact))
-                                           body2 (get sim (:body2 contact))]]
-                                 (transpose (stack (zeros 1 (* index 6))
-                                                   (- (:normal contact))
-                                                   (cross (- (* (:transform body1) (:point contact))
-                                                             (* (:transform body1) (:center-of-mass body1)))
-                                                          (:normal contact))
-                                                   (:normal contact)
-                                                   (cross (- (* (:transform body2) (:point contact))
-                                                             (* (:transform body2) (:center-of-mass body2)))
-                                                          (:normal contact))
-                                                   (zeros 1 (* (- index 2) 6))))))
-                F (apply stack (for [contact contacts
-                                     :let [body1 (get sim (:body1 contact))
-                                           body2 (get sim (:body2 contact))]]
-                                 (stack (/ (:linear-momentum body1)
-                                           delta)
-                                        (/ (:angular-momentum body1)
-                                           delta)
-                                        (/ (:linear-momentum body2)
-                                           delta)
-                                        (/ (:angular-momentum body2)
-                                           delta))))
-                M (apply stack (for [index (range (count contacts))
-                                     :let [contact (contacts i)
-                                           body1 (get sim (:body1 contact))
-                                           body2 (get sim (:body2 contact))]]
-                                 (stack (component (* 6 (count contacts)) (* 3 index) (:mass body1))
-                                        (component (* 6 (count contacts)) (+ 1 (* 3 index)) (:mass body1))
-                                        (component (* 6 (count contacts)) (+ 2 (* 3 index)) (:moment-of-inertia body1))
-                                        (component (* 6 (count contacts)) (+ 3 (* 3 index)) (:mass body2))
-                                        (component (* 6 (count contacts)) (+ 4 (* 3 index)) (:mass body2))
-                                        (component (* 6 (count contacts)) (+ 5 (* 3 index)) (:moment-of-inertia body2)))))
-                V (apply stack (for [contact contacts
-                                     :let [body1 (get sim (:body1 contact))
-                                           body2 (get sim (:body2 contact))]]
-                                 (stack (/ (:linear-momentum body1)
-                                           (:mass body1))
-                                        (/ (:angular-momentum body1)
-                                           (:mass body1))
-                                        (/ (:linear-momentum body2)
-                                           (:mass body2))
-                                        (/ (:angular-momentum body2)
-                                           (:mass body2))))))]
+           G (let [G (matrix/muti-matrix 1 6 (count contacts) (count contacts))]
+               (doseq [index (-> contacts count range)
+                       :let [contact (contacts index)
+                             body1 (get sim (:body1 contact))
+                             body2 (get sim (:body2 contact))
+                             temp (matrix/create 1 6)]]
+                 (matrix/set temp 0 0 (- (:normal contact)))
+                 (matrix/set temp 0 2 (matrix/cross (matrix/sub (matrix/transform (:point contact) (:transform body1))
+                                                                (matrix/transform (:center-of-mass body1) (:transform body1)))
+                                                    (:normal contact)))
+                 (matrix/set temp 0 3 (:normal contact))
+                 (matrix/set temp 0 5 (matrix/cross (matrix/sub (matrix/transform (:point contact) (:transform body2))
+                                                                (matrix/transform (:center-of-mass body2) (:transform body2)))
+                                                    (:normal contact)))
+                 (matrix/set G index index temp)))
+           F (let [F (matrix/create 1 (* 6 (count contacts)))]
+               (doseq [index (-> contacts count range)
+                       :let [contact (contacts index)
+                             body1 (get sim (:body1 contact))
+                             body2 (get sim (:body2 contact))]]
+                 (matrix/set F (* index 6) 0 (matrix/add (get-in perturbations (:body1 contact) :force)
+                                                         (matrix/div (get-in perturbations (:body1 contact) :linear-impulse) delta)))
+                 (matrix/set F (+ (* index 6) 2) 0 (+ (get-in perturbations (:body1 contact) :torque)
+                                                      (/ (get-in perturbations (:body1 contact) :angular-impulse) delta)))
+                 (matrix/set F (+ (* index 6) 3) 0 (matrix/add (get-in perturbations (:body2 contact) :force)
+                                                               (matrix/div (get-in perturbations (:body2 contact) :linear-impulse) delta)))
+                 (matrix/set F (+ (* index 6) 5) 0 (+ (get-in perturbations (:body2 contact) :torque)
+                                                      (/ (get-in perturbations (:body2 contact) :angular-impulse) delta)))))
+           V (let [V (matrix/create 1 (* 6 (count contacts)))]
+               (doseq [index (-> contacts count range)
+                       :let [contact (contacts index)
+                             body1 (get sim (:body1 contact))
+                             body2 (get sim (:body2 contact))]]
+                 (matrix/set F (* index 6) 0 (:linear-velocity body1))
+                 (matrix/set F (+ (* index 6) 2) 0 (:angular-velocity body1))
+                 (matrix/set F (+ (* index 6) 3) 0 (:linear-velocity body2))
+                 (matrix/set F (+ (* index 6) 5) 0 (:angular-velocity body2))))
+           M (let [M (matrix/multi-matrix 6 6 (count contacts) (count contacts))]
+               (doseq [index (-> contacts count range)
+                       :let [contact (contacts index)
+                             body1 (get sim (:body1 contact))
+                             body2 (get sim (:body2 contact))
+                             temp (matrix/create 6 6)]]
+                 (matrix/set temp 0 0 (:mass body1))
+                 (matrix/set temp 1 1 (:mass body1))
+                 (matrix/set temp 2 2 (:moment-of-inertia body1))
+                 (matrix/set temp 3 3 (:mass body2))
+                 (matrix/set temp 4 4 (:mass body2))
+                 (matrix/set temp 5 5 (:moment-of-inertia body2))
+                 (matrix/set M index index temp)))]
         (doseq [contact contacts]
           (process-contact contact))
         (assoc sim

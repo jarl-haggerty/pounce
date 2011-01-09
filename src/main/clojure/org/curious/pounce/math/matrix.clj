@@ -1,18 +1,17 @@
 (ns org.curious.pounce.math.matrix
   "Defines the matrix and transform data structures and the functions to manipulate them."
-  (:refer-clojure :exclude [set])
+  (:refer-clojure :exclude [get set])
   (:require [org.curious.pounce.math.core :as math]))
 
 (defprotocol Table
   (data [this])
   (rows [this])
-  (columns [this]))
+  (columns [this])
+  (get [this row column])
+  (set [this row column source]))
 
 (def add)
 (def mul)
-
-(defprotocol Matrix
-  (mul [x y]))
 
 (deftype Matrix [array]
   Object
@@ -47,32 +46,36 @@
                      (.append builder (columns this))
                      (.append builder "")
                      (.toString builder)))
-  Matrix
-  
   Table
   (data [this] array)
   (rows [this] (alength (data this)))
-  (columns [this] (alength (aget (data this) 0))))
+  (columns [this] (alength (aget (data this) 0)))
+  (get [this row column] (aget (data this) row column))
+  (set [this row column source]
+       (cond (number? source) (aset-float (data this) row column source)
+             (instance? Matrix source) (loop [row-index (int 0)]
+                                         (when (< row-index (columns source))
+                                           (loop [column-index (int 0)]
+                                             (when (< column-index (rows source))
+                                               (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
+                                                           (aget (data source) row-index column-index))
+                                               (recur (unchecked-inc column-index))))
+                                           (recur (unchecked-inc row-index)))))
+       this))
 
-(deftype SparseMatrix [submatrices]
-  Object
-  (equals [this that] (for [[x y] (keys submatrices)]
-                        )
-          (every? identity )
+(deftype MultiMatrix [row-stride column-stride matrices]
+  Table
+  (data [this] matrices)
+  (rows [this] (* row-stride (alength (data this))))
+  (rows [this] (* column-stride (alength (aget (data this) 0))))
+  (get [this row column] (-> (data this)
+                             (aget (unchecked-divide row row-stride) (unchecked-divide column column-stride))
+                             (get (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))))
+  (set [this row column source]
+       (aset (data this) row column source)))
 
-          (and (= (rows this) (rows that))
-                           (= (columns this) (columns that))
-                           (loop [row (int 0)]
-                             (if (< row (rows this))
-                               (if (loop [column (int 0)]
-                                     (if (< column (columns this))
-                                       (if (math/eps= (aget (data this) row column) (aget (data that) row column))
-                                         (recur (unchecked-inc column))
-                                         false)
-                                       true))
-                                 (recur (unchecked-inc row))
-                                 false)
-                               true)))))
+(defn multi-matrix [row-stride column-stride rows columns]
+  (MultiMatrix. row-stride column-stride (make-array MultiMatrix rows columns)))
 
 (defn clone [this]
   (let [new-data (make-array Float/TYPE (rows this) (columns this))]
@@ -84,18 +87,6 @@
             (recur (unchecked-inc column))))
         (recur (unchecked-inc row))))
     (Matrix. new-data)))
-
-(defn set [this row column source]
-  (cond (number? source) (aset-float (data this) row column source)
-        (instance? Matrix source) (loop [row-index (int 0)]
-                                    (when (< row-index (columns source))
-                                      (loop [column-index (int 0)]
-                                        (when (< column-index (rows source))
-                                          (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
-                                                      (aget (data source) row-index column-index))
-                                          (recur (unchecked-inc column-index))))
-                                      (recur (unchecked-inc row-index)))))
-  this)
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
