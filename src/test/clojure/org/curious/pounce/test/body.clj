@@ -16,7 +16,8 @@
                                                 0
                                                 math/positive-infinity
                                                 (matrix/create 1/2 1/2)
-                                                false))
+                                                false
+                                                true))
 (def test-body-2 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
                                                 [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
                                                 1/6
@@ -26,7 +27,8 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false))
+                                                false
+                                                true))
 (def test-body-3 (org.curious.pounce.body.Body. (matrix/transformation 1 2 (/ math/pi 2))
                                                 [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
                                                 1/6
@@ -36,7 +38,8 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false))
+                                                false
+                                                true))
 (def test-body-4 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
                                                [(shape/polygon 1 [(- (math/sqrt 2)) 0] [(- (/ (math/sqrt 2))) (- (/ (math/sqrt 2)))] [0 0] [(- (/ (math/sqrt 2))) (/ (math/sqrt 2))])
                                                 (shape/polygon 1 [0 0] [(/ (math/sqrt 2)) (- (/ (math/sqrt 2)))] [(math/sqrt 2) 0] [(/ (math/sqrt 2)) (/ (math/sqrt 2))])]
@@ -47,7 +50,8 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false))
+                                                false
+                                                true))
 
 (test/deftest body-test
   (test/is (= (body/create test-polygon-1) test-body-1))

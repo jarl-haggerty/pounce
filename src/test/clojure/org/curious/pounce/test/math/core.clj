@@ -34,7 +34,10 @@
   (test/is (not (math/eps= math/negative-infinity 0)))
   (test/is (math/eps= 0 0))
   (test/is (math/eps= 0 1e-10))
-  (test/is (not (math/eps= 0 1e-5))))
+  (test/is (not (math/eps= 0 1e-5)))
+  (test/is (math/eps= 0 0 1e-2))
+  (test/is (math/eps= 0 0.001 1e-2))
+  (test/is (not (math/eps= 0 0.1 1e-2))))
 (test/deftest eps<-test
   (test/is (not (math/eps< math/positive-infinity math/positive-infinity)))
   (test/is (not (math/eps< math/negative-infinity math/negative-infinity)))

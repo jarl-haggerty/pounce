@@ -49,9 +49,10 @@
   [coll] (fn [n] (coll (mod n (count coll)))))
 (defn eps=
   "Returns true if the difference between two numbers is less than epsilon."
-  [x y] (or (= positive-infinity x y)
-            (= negative-infinity x y)
-            (< (abs (- x y)) eps)))
+  ([x y] (eps= x y eps))
+  ([x y eps] (or (= positive-infinity x y)
+                 (= negative-infinity x y)
+                 (< (abs (- x y)) eps))))
 (defn eps<
   "Returns true if the difference between two numbers is less than epsilon."
   [x y] (and (not (eps= x y))

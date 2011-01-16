@@ -6,7 +6,7 @@
             [org.curious.pounce.math.matrix :as matrix]
             [org.curious.pounce.render :as render]))
 
-(defrecord Body [transformation shapes moment-of-inertia linear-momentum linear-velocity angular-momentum angular-velocity mass center-of-mass kinematic live]
+(defrecord Body [transformation shapes moment-of-inertia external-force linear-momentum linear-velocity external-torque angular-momentum angular-velocity mass center-of-mass kinematic live]
   render/Renderable
   (render [this graphics] (doseq [shape shapes]
                             (render/render (shape/transform shape transformation) graphics))))
@@ -30,6 +30,8 @@
                           shapes)))
            (matrix/create 0 0)
            (matrix/create 0 0)
+           (matrix/create 0 0)
+           0
            0
            0
            mass
@@ -59,10 +61,6 @@
       :angular-velocity new-angular-velocity)))
 
 (defn collisions [this that]
-  (comment (doseq [shape1 (:shapes this)
-                   shape2 (:shapes that)]
-             (println (shape/transform shape1 (:transformation this)))
-             (println (shape/transform shape2 (:transformation that)))))
   (map #(assoc %
           :body1 (:id this)
           :body2 (:id that))

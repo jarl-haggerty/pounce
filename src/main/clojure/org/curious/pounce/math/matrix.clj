@@ -8,7 +8,8 @@
   (rows [this])
   (columns [this])
   (get [this row column])
-  (set [this row column source]))
+  (set [this row column source])
+  (clone [this]))
 
 (def add)
 (def mul)
@@ -52,41 +53,57 @@
   (columns [this] (alength (aget (data this) 0)))
   (get [this row column] (aget (data this) row column))
   (set [this row column source]
-       (cond (number? source) (aset-float (data this) row column source)
-             (instance? Matrix source) (loop [row-index (int 0)]
-                                         (when (< row-index (columns source))
-                                           (loop [column-index (int 0)]
-                                             (when (< column-index (rows source))
-                                               (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
-                                                           (aget (data source) row-index column-index))
-                                               (recur (unchecked-inc column-index))))
-                                           (recur (unchecked-inc row-index)))))
-       this))
+       (aset-float (data this) row column source)      
+       this)
+  (clone [this] (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+                  (loop [row (int 0)]
+                    (when (< row (rows this))
+                      (loop [column (int 0)]
+                        (when (< column (columns this))
+                          (aset-float new-data row column (aget (data this) row column))
+                          (recur (unchecked-inc column))))
+                      (recur (unchecked-inc row))))
+                  (Matrix. new-data))))
 
 (deftype MultiMatrix [row-stride column-stride matrices]
+  Object
+  (equals [this that] (and (= (alength (data this)) (alength (data that)))
+                           (= (alength (aget (data this) 0)) (alength (aget (data that) 0)))
+                           (loop [row (int 0)]
+                             (if (< row (-> this data alength))
+                               (if (loop [column (int 0)]
+                                     (if (< column (-> this data (aget 0) alength))
+                                       (if (= (aget (data this) row column) (aget (data that) row column))
+                                         (recur (unchecked-inc column))
+                                         false)
+                                       true))
+                                 (recur (unchecked-inc row))
+                                 false)
+                               true))))
   Table
   (data [this] matrices)
   (rows [this] (* row-stride (alength (data this))))
-  (rows [this] (* column-stride (alength (aget (data this) 0))))
-  (get [this row column] (-> (data this)
-                             (aget (unchecked-divide row row-stride) (unchecked-divide column column-stride))
-                             (get (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))))
+  (columns [this] (* column-stride (alength (aget (data this) 0))))
+  (get [this row column] (if-let [matrix (aget (data this) (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
+                           (get matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))
+                           0))
   (set [this row column source]
-       (aset (data this) row column source)))
+       (aset (data this) row column source)
+       this)
+  (clone [this] (let [new-data (make-array Matrix (-> this data alength) (-> this data (aget 0) alength))]
+                  (loop [row (int 0)]
+                    (when (< row (-> this data alength))
+                      (loop [column (int 0)]
+                        (when (< column (-> this data (aget 0) alength))
+                          (aset new-data row column (if-let [old (aget (data this) row column)]
+                                                      (clone old)
+                                                      nil))
+                          (recur (unchecked-inc column))))
+                      (recur (unchecked-inc row))))
+                  (MultiMatrix. row-stride column-stride new-data))))
 
 (defn multi-matrix [row-stride column-stride rows columns]
-  (MultiMatrix. row-stride column-stride (make-array MultiMatrix rows columns)))
-
-(defn clone [this]
-  (let [new-data (make-array Float/TYPE (rows this) (columns this))]
-    (loop [row (int 0)]
-      (when (< row (rows this))
-        (loop [column (int 0)]
-          (when (< column (columns this))
-            (aset-float new-data row column (aget (data this) row column))
-            (recur (unchecked-inc column))))
-        (recur (unchecked-inc row))))
-    (Matrix. new-data)))
+  (MultiMatrix. row-stride column-stride (make-array Matrix rows columns)))
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
@@ -221,6 +238,11 @@
                                                               args))
                                           (Matrix. new-data))))
 
+(defn allocate
+  "Returns a matrix with the specified rows and columns"
+  ([rows] (alloc rows 1))
+  ([rows columns] (Matrix. (make-array Float/TYPE rows columns))))
+
 (defn rotation-matrix
   "Calculates the rotation matrix for theta radians"
   [theta] (Matrix. (doto (make-array Float/TYPE 2 2)
@@ -248,3 +270,37 @@
 
 (defn transform [this t]
   (add (mul (:rotation t) this) (:translation t)))
+
+(defn gauss-seidel
+  ([A b] (gauss-seidel A b math/eps))
+  ([A b metric] (gauss-seidel A b (create (repeat (rows b) 1)) metric))
+  ([A b initial-x metric]
+     (let [x (clone initial-x)
+           metric-function (if (integer? metric)
+                             (fn [iteration max-change] (< iteration metric))
+                             (fn [iteration max-change] (< metric max-change)))]
+       (loop [iteration (int 0) max-change Float/POSITIVE_INFINITY]
+         (when (metric-function iteration max-change)
+           (let [new-max-change (loop [row (int 0) max-change 0]
+                                  (if (< row (rows A))
+                                    (let [old-value (get x row 0)
+                                          new-value (/ (- (get b row 0)
+                                                          (loop [column (unchecked-inc row) accum 0]
+                                                            (if (< column (columns A))
+                                                              (recur (unchecked-inc column)
+                                                                     (+ accum
+                                                                        (* (get A row column) (get x column 0))))
+                                                              accum))
+                                                          (loop [column (int 0) accum 0]
+                                                            (if (< column row)
+                                                              (recur (unchecked-inc column)
+                                                                     (+ accum
+                                                                        (* (get A row column) (get x column 0))))
+                                                              accum)))
+                                                       (get A row row))
+                                          change (math/abs (- new-value old-value))]
+                                      (set x row 0 new-value)
+                                      (recur (unchecked-inc row) (if (< max-change change) change max-change)))
+                                    max-change))]
+             (recur (unchecked-inc iteration) (float new-max-change)))))
+       x)))
