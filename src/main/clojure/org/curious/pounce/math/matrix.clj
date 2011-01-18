@@ -23,8 +23,10 @@ limitations under the License.
   (data [this])
   (rows [this])
   (columns [this])
+  (transpose [this])
   (get [this row column])
   (set [this row column source])
+  (batch-set [this row column source])
   (clone [this]))
 
 (def add)
@@ -67,10 +69,24 @@ limitations under the License.
   (data [this] array)
   (rows [this] (alength (data this)))
   (columns [this] (alength (aget (data this) 0)))
+  (transpose [this] (let [new-data (make-array Float/TYPE (columns this) (rows this))]
+                      (loop [column (int 0)]
+                        (when (< column (columns this))
+                          (loop [row (int 0)]
+                            (when (< row (rows this))
+                              (aset-float new-data column row (aget data row column))))))
+                      (Matrix. new-data)))
   (get [this row column] (aget (data this) row column))
-  (set [this row column source]
-       (aset-float (data this) row column source)      
-       this)
+  (set [this row column source] (aset-float (data this) row column source))
+  (batch-set [this row column source]
+             (loop [row-index (int 0)]
+               (when (< row-index (columns source))
+                 (loop [column-index (int 0)]
+                   (when (< column-index (rows source))
+                     (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
+                                 (aget (data source) row-index column-index))
+                     (recur (unchecked-inc column-index))))
+                 (recur (unchecked-inc row-index)))))
   (clone [this] (let [new-data (make-array Float/TYPE (rows this) (columns this))]
                   (loop [row (int 0)]
                     (when (< row (rows this))
@@ -100,12 +116,24 @@ limitations under the License.
   (data [this] matrices)
   (rows [this] (* row-stride (alength (data this))))
   (columns [this] (* column-stride (alength (aget (data this) 0))))
+  (transpose [this] (let [new-matrices (make-array Matrix (-> this data alength) (- this data (aget 0) alength))]
+                      (loop [column (int 0)]
+                        (when (< column (columns this))
+                          (loop [row (int 0)]
+                            (when (< row (rows this))
+                              (aset new-data column row (if-let [old-matrix (aget data row column)]
+                                                          (transpose old-matrix)
+                                                          nil))))))
+                      (MultiMatrix. column-stride row-stride new-matrices)))
   (get [this row column] (if-let [matrix (aget (data this) (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
                            (get matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))
                            0))
-  (set [this row column source]
-       (aset (data this) row column source)
-       this)
+  (set [this row column source] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
+                                  (aset-float matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
+                                  (let [new-data (make-array Float/TYPE row-stride column-stride)]
+                                    (aset-float new-data (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
+                                    (aset matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride) (Matrix. new-data)))))
+  (batch-set [this row column source] (aset (data this) row column source))
   (clone [this] (let [new-data (make-array Matrix (-> this data alength) (-> this data (aget 0) alength))]
                   (loop [row (int 0)]
                     (when (< row (-> this data alength))
@@ -126,14 +154,14 @@ limitations under the License.
                          (when (< row (rows this))
                            (loop [column (int 0)]
                              (when (< column (columns this))
-                               (aset-float (data this) row column (+ (aget ^floats (data this) row column) that))
+                               (set this row column (+ (get this row column) that))
                                (recur (unchecked-inc column))))
                            (recur (unchecked-inc row))))
         (instance? Matrix that) (loop [row (int 0)]
                                   (when (< row (rows this))
                                     (loop [column (int 0)]
                                       (when (< column (columns this))
-                                        (aset-float (data this) row column (+ (aget ^floats (data this) row column) (aget ^floats (data that) row column)))
+                                        (set (data this) row column (+ (get (data this) row column) (get (data that) row column)))
                                         (recur (unchecked-inc column))))
                                     (recur (unchecked-inc row)))))
   this)
@@ -145,14 +173,14 @@ limitations under the License.
                               (when (< row (rows this))
                                 (loop [column (int 0)]
                                   (when (< column (columns this))
-                                    (aset-float new-data row column (+ (aget ^floats (data this) row column) that))
+                                    (aset-float new-data row column (+ (get (data this) row column) that))
                                     (recur (unchecked-inc column))))
                                 (recur (unchecked-inc row))))
              (instance? Matrix that) (loop [row (int 0)]
                                       (when (< row (rows this))
                                         (loop [column (int 0)]
                                           (when (< column (columns this))
-                                            (aset-float new-data row column (+ (aget (data this) row column) (aget (data that) row column)))
+                                            (aset-float new-data row column (+ (get (data this) row column) (get (data that) row column)))
                                             (recur (unchecked-inc column))))
                                         (recur (unchecked-inc row)))))
        (Matrix. new-data)))
@@ -164,14 +192,14 @@ limitations under the License.
                          (when (< row (rows this))
                            (loop [column (int 0)]
                              (when (< column (columns this))
-                               (aset-float (data this) row column (- (aget ^floats (data this) row column) that))
+                               (set this row column (- (get (data this) row column) that))
                                (recur (unchecked-inc column))))
                            (recur (unchecked-inc row))))
         (instance? Matrix that) (loop [row (int 0)]
                                   (when (< row (rows this))
                                     (loop [column (int 0)]
                                       (when (< column (columns this))
-                                        (aset-float (data this) row column (- (aget ^floats (data this) row column) (aget ^floats (data that) row column)))
+                                        (set this row column (- (get (data this) row column) (get (data that) row column)))
                                         (recur (unchecked-inc column))))
                                     (recur (unchecked-inc row)))))
   this)
@@ -184,7 +212,7 @@ limitations under the License.
                                        (when (< row (rows this))
                                          (loop [column (int 0)]
                                            (when (< column (columns this))
-                                             (aset-float new-data row column (- (aget ^floats (data this) row column)))
+                                             (aset-float new-data row column (- (get (data this) row column)))
                                              (recur (unchecked-inc column))))
                                          (recur (unchecked-inc row))))
                                      (Matrix. new-data))))
@@ -200,7 +228,7 @@ limitations under the License.
                            (when (< row (rows this))
                              (loop [column (int 0)]
                                (when (< column (columns this))
-                                 (aset-float new-data row column (* (aget ^floats (data this) row column) that))
+                                 (aset-float new-data row column (* (get (data this) row column) that))
                                  (recur (unchecked-inc column))))
                              (recur (unchecked-inc row))))
                          (Matrix. new-data))
@@ -211,9 +239,9 @@ limitations under the License.
                                         (when (< column (columns that))
                                           (loop [index (int 0)]
                                             (when (< index (columns this))
-                                              (aset-float new-data row column (+ (aget ^float new-data row column)
-                                                                                 (* (aget ^float (data this) row index)
-                                                                                    (aget ^float (data that) index column))))
+                                              (aset-float new-data row column (+ (get new-data row column)
+                                                                                 (* (get (data this) row index)
+                                                                                    (get (data that) index column))))
                                               (recur (unchecked-inc index))))
                                           (recur (unchecked-inc column))))
                                       (recur (unchecked-inc row))))
@@ -221,13 +249,13 @@ limitations under the License.
 
 (defn div [this that] (mul this (/ that)))
 
-(defn x [this] (aget ^float (data this) 0 0))
-(defn y [this] (aget ^float (data this) 1 0))
+(defn x [this] (get (data this) 0 0))
+(defn y [this] (get (data this) 1 0))
 
 (defn dot [this that] (loop [row (int 0) accum 0]
                         (if (< row (rows this))
-                          (recur (unchecked-inc row) (+ accum (* (aget ^float (data this) row 0)
-                                                                 (aget ^float (data that) row 0))))
+                          (recur (unchecked-inc row) (+ accum (* (get (data this) row 0)
+                                                                 (get (data that) row 0))))
                           accum)))
 
 (defn cross [this that] (- (* (x this) (y that)) (* (x that) (y this))))

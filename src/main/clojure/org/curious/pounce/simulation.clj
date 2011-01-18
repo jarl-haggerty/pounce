@@ -64,6 +64,7 @@ limitations under the License.
                                                                 (matrix/transform (:center-of-mass body2) (:transform body2)))
                                                     (:normal contact)))
                  (matrix/set G index index temp)))
+           G-M-inverse-G-transpose (let [G-M-inverse-G-transpose ])
            G-transpose (matrix/transpose G)
            F (let [F (matrix/allocate (* 6 (count contacts)))]
                (doseq [index (-> contacts count range)
