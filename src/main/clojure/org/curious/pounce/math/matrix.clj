@@ -1,18 +1,18 @@
-"
-Copyright 2010 Jarl Haggerty
+(comment
+  Copyright 2010 Jarl Haggerty
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
-       
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"
+  http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.)
+
 
 (ns org.curious.pounce.math.matrix
   "Defines the matrix and transform data structures and the functions to manipulate them."
@@ -20,7 +20,6 @@ limitations under the License.
   (:require [org.curious.pounce.math.core :as math]))
 
 (defprotocol Table
-  (data [this])
   (rows [this])
   (columns [this])
   (transpose [this])
@@ -29,125 +28,137 @@ limitations under the License.
   (batch-set [this row column source])
   (clone [this]))
 
+(defn- matrix-equals [this that] (and (= (rows this) (rows that))
+                                      (= (columns this) (columns that))
+                                      (loop [row (int 0)]
+                                        (if (< row (rows this))
+                                          (if (loop [column (int 0)]
+                                                (if (< column (columns this))
+                                                  (if (math/eps= (get this row column) (get that row column))
+                                                    (recur (unchecked-inc column))
+                                                    false)
+                                                  true))
+                                            (recur (unchecked-inc row))
+                                            false)
+                                          true))))
+
+(defn- matrix-string [this] (let [builder (StringBuilder.)]
+                              (.append builder "[")
+                              (loop [column (int 0)]
+                                (when (< column (columns this))
+                                  (loop [row (int 0)]
+                                    (when (< row (rows this))
+                                      (.append builder (get this row column))
+                                      (if (not (and (= column (dec (columns this)))
+                                                    (= row (dec (rows this)))))
+                                        (.append builder " "))
+                                      (recur (unchecked-inc row))))
+                                  (recur (unchecked-inc column))))
+                              (.append builder "] rows: ")
+                              (.append builder (rows this))
+                              (.append builder " columns: ")
+                              (.append builder (columns this))
+                              (.append builder "")
+                              (.toString builder)))
+
 (def add)
 (def mul)
 
-(deftype Matrix [array]
+(deftype Matrix [data]
   Object
-  (equals [this that] (and (= (rows this) (rows that))
-                           (= (columns this) (columns that))
-                           (loop [row (int 0)]
-                             (if (< row (rows this))
-                               (if (loop [column (int 0)]
-                                     (if (< column (columns this))
-                                       (if (math/eps= (aget (data this) row column) (aget (data that) row column))
-                                         (recur (unchecked-inc column))
-                                         false)
-                                       true))
-                                 (recur (unchecked-inc row))
-                                 false)
-                               true))))
-  (toString [this] (let [builder (StringBuilder.)]
-                     (.append builder "[")
-                     (loop [column (int 0)]
-                       (when (< column (columns this))
-                         (loop [row (int 0)]
-                           (when (< row (rows this))
-                             (.append builder (aget (data this) row column))
-                             (if (not (and (= column (dec (columns this)))
-                                           (= row (dec (rows this)))))
-                               (.append builder " "))
-                             (recur (unchecked-inc row))))
-                         (recur (unchecked-inc column))))
-                     (.append builder "] rows: ")
-                     (.append builder (rows this))
-                     (.append builder " columns: ")
-                     (.append builder (columns this))
-                     (.append builder "")
-                     (.toString builder)))
+  (equals [this that] (matrix-equals this that))
+  (toString [this] (matrix-string this))
   Table
-  (data [this] array)
-  (rows [this] (alength (data this)))
-  (columns [this] (alength (aget (data this) 0)))
-  (transpose [this] (let [new-data (make-array Float/TYPE (columns this) (rows this))]
-                      (loop [column (int 0)]
-                        (when (< column (columns this))
-                          (loop [row (int 0)]
-                            (when (< row (rows this))
-                              (aset-float new-data column row (aget data row column))))))
-                      (Matrix. new-data)))
-  (get [this row column] (aget (data this) row column))
-  (set [this row column source] (aset-float (data this) row column source))
+  (rows [this] (alength data))
+  (columns [this] (alength (aget data 0)))
+  (get [this row column] (aget data row column))
+  (set [this row column source] (aset-float data row column source) this)
   (batch-set [this row column source]
              (loop [row-index (int 0)]
                (when (< row-index (columns source))
                  (loop [column-index (int 0)]
                    (when (< column-index (rows source))
-                     (aset-float (data this) (unchecked-add row row-index) (unchecked-add column column-index)
+                     (aset-float data (unchecked-add row row-index) (unchecked-add column column-index)
                                  (aget (data source) row-index column-index))
                      (recur (unchecked-inc column-index))))
-                 (recur (unchecked-inc row-index)))))
+                 (recur (unchecked-inc row-index))))
+             this)
   (clone [this] (let [new-data (make-array Float/TYPE (rows this) (columns this))]
                   (loop [row (int 0)]
                     (when (< row (rows this))
                       (loop [column (int 0)]
                         (when (< column (columns this))
-                          (aset-float new-data row column (aget (data this) row column))
+                          (aset-float new-data row column (aget data row column))
                           (recur (unchecked-inc column))))
                       (recur (unchecked-inc row))))
                   (Matrix. new-data))))
 
 (deftype MultiMatrix [row-stride column-stride matrices]
   Object
-  (equals [this that] (and (= (alength (data this)) (alength (data that)))
-                           (= (alength (aget (data this) 0)) (alength (aget (data that) 0)))
-                           (loop [row (int 0)]
-                             (if (< row (-> this data alength))
-                               (if (loop [column (int 0)]
-                                     (if (< column (-> this data (aget 0) alength))
-                                       (if (= (aget (data this) row column) (aget (data that) row column))
-                                         (recur (unchecked-inc column))
-                                         false)
-                                       true))
-                                 (recur (unchecked-inc row))
-                                 false)
-                               true))))
+  (equals [this that] (matrix-equals this that))
+  (toString [this] (matrix-string this))
   Table
-  (data [this] matrices)
-  (rows [this] (* row-stride (alength (data this))))
-  (columns [this] (* column-stride (alength (aget (data this) 0))))
-  (transpose [this] (let [new-matrices (make-array Matrix (-> this data alength) (- this data (aget 0) alength))]
-                      (loop [column (int 0)]
-                        (when (< column (columns this))
-                          (loop [row (int 0)]
-                            (when (< row (rows this))
-                              (aset new-data column row (if-let [old-matrix (aget data row column)]
-                                                          (transpose old-matrix)
-                                                          nil))))))
-                      (MultiMatrix. column-stride row-stride new-matrices)))
-  (get [this row column] (if-let [matrix (aget (data this) (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
+  (rows [this] (* row-stride (alength matrices)))
+  (columns [this] (* column-stride (alength (aget matrices 0))))
+  (get [this row column] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
                            (get matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))
                            0))
   (set [this row column source] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
                                   (aset-float matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
                                   (let [new-data (make-array Float/TYPE row-stride column-stride)]
                                     (aset-float new-data (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
-                                    (aset matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride) (Matrix. new-data)))))
-  (batch-set [this row column source] (aset (data this) row column source))
-  (clone [this] (let [new-data (make-array Matrix (-> this data alength) (-> this data (aget 0) alength))]
+                                    (aset matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride) (Matrix. new-data))))
+       this)
+  (batch-set [this row column source] (aset matrices row column source) this)
+  (clone [this] (let [new-data (make-array Matrix (-> matrices alength) (-> matrices (aget 0) alength))]
                   (loop [row (int 0)]
-                    (when (< row (-> this data alength))
+                    (when (< row (-> matrices alength))
                       (loop [column (int 0)]
-                        (when (< column (-> this data (aget 0) alength))
-                          (aset new-data row column (if-let [old (aget (data this) row column)]
+                        (when (< column (-> matrices (aget 0) alength))
+                          (aset new-data row column (if-let [old (aget matrices row column)]
                                                       (clone old)
                                                       nil))
                           (recur (unchecked-inc column))))
                       (recur (unchecked-inc row))))
                   (MultiMatrix. row-stride column-stride new-data))))
 
+(deftype TransposeMatrix [original]
+  Object
+  (equals [this that] (matrix-equals this that))
+  (toString [this] (matrix-string this))
+  Table
+  (rows [this] (columns original))
+  (columns [this] (rows original))
+  (get [this row column] (get original column row))
+  (set [this row column value] (set original column row value) this)
+  (batch-set [this row column value] (batch-set original column row (TransposeMatrix. value)) this)
+  (clone [this] (TransposeMatrix. (clone original))))
+
+(deftype DiagonalMatrix [diagonal]
+  Object
+  (equals [this that] (matrix-equals this that))
+  (toString [this] (matrix-string this))
+  Table
+  (rows [this] (alength diagonal))
+  (columns [this] (alength diagonal))
+  (get [this row column] (if (= row column)
+                                  (aget diagonal row)
+                                  0))
+  (set [this row column value] (if (= row column)
+                                 (aset-float diagonal row column value)
+                                 (throw (Exception. "Cannot alter non-diagonal entries in diagonal matrix.")))
+       this)
+  (batch-set [this row column value] (throw (Exception. "batch-set not available for diagonal matrices.")) this)
+  (clone [this] (DiagonalMatrix. (aclone diagonal))))
+
 (defn multi-matrix [row-stride column-stride rows columns]
   (MultiMatrix. row-stride column-stride (make-array Matrix rows columns)))
+
+(defn transpose [this]
+  (TransposeMatrix. this))
+
+(defn diagonal-matrix [size]
+  (DiagonalMatrix. (float-array size)))
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
@@ -161,7 +172,7 @@ limitations under the License.
                                   (when (< row (rows this))
                                     (loop [column (int 0)]
                                       (when (< column (columns this))
-                                        (set (data this) row column (+ (get (data this) row column) (get (data that) row column)))
+                                        (set this row column (+ (get this row column) (get that row column)))
                                         (recur (unchecked-inc column))))
                                     (recur (unchecked-inc row)))))
   this)
@@ -173,14 +184,14 @@ limitations under the License.
                               (when (< row (rows this))
                                 (loop [column (int 0)]
                                   (when (< column (columns this))
-                                    (aset-float new-data row column (+ (get (data this) row column) that))
+                                    (aset-float new-data row column (+ (get this row column) that))
                                     (recur (unchecked-inc column))))
                                 (recur (unchecked-inc row))))
              (instance? Matrix that) (loop [row (int 0)]
                                       (when (< row (rows this))
                                         (loop [column (int 0)]
                                           (when (< column (columns this))
-                                            (aset-float new-data row column (+ (get (data this) row column) (get (data that) row column)))
+                                            (aset-float new-data row column (+ (get this row column) (get that row column)))
                                             (recur (unchecked-inc column))))
                                         (recur (unchecked-inc row)))))
        (Matrix. new-data)))
@@ -192,14 +203,14 @@ limitations under the License.
                          (when (< row (rows this))
                            (loop [column (int 0)]
                              (when (< column (columns this))
-                               (set this row column (- (get (data this) row column) that))
+                               (set this row column (- (get this row column) that))
                                (recur (unchecked-inc column))))
                            (recur (unchecked-inc row))))
         (instance? Matrix that) (loop [row (int 0)]
                                   (when (< row (rows this))
                                     (loop [column (int 0)]
                                       (when (< column (columns this))
-                                        (set this row column (- (get (data this) row column) (get (data that) row column)))
+                                        (set this row column (- (get this row column) (get that row column)))
                                         (recur (unchecked-inc column))))
                                     (recur (unchecked-inc row)))))
   this)
@@ -212,7 +223,7 @@ limitations under the License.
                                        (when (< row (rows this))
                                          (loop [column (int 0)]
                                            (when (< column (columns this))
-                                             (aset-float new-data row column (- (get (data this) row column)))
+                                             (aset-float new-data row column (- (get this row column)))
                                              (recur (unchecked-inc column))))
                                          (recur (unchecked-inc row))))
                                      (Matrix. new-data))))
@@ -228,7 +239,7 @@ limitations under the License.
                            (when (< row (rows this))
                              (loop [column (int 0)]
                                (when (< column (columns this))
-                                 (aset-float new-data row column (* (get (data this) row column) that))
+                                 (aset-float new-data row column (* (get this row column) that))
                                  (recur (unchecked-inc column))))
                              (recur (unchecked-inc row))))
                          (Matrix. new-data))
@@ -239,9 +250,9 @@ limitations under the License.
                                         (when (< column (columns that))
                                           (loop [index (int 0)]
                                             (when (< index (columns this))
-                                              (aset-float new-data row column (+ (get new-data row column)
-                                                                                 (* (get (data this) row index)
-                                                                                    (get (data that) index column))))
+                                              (aset-float new-data row column (+ (aget new-data row column)
+                                                                                 (* (get this row index)
+                                                                                    (get that index column))))
                                               (recur (unchecked-inc index))))
                                           (recur (unchecked-inc column))))
                                       (recur (unchecked-inc row))))
@@ -249,13 +260,13 @@ limitations under the License.
 
 (defn div [this that] (mul this (/ that)))
 
-(defn x [this] (get (data this) 0 0))
-(defn y [this] (get (data this) 1 0))
+(defn x [this] (get this 0 0))
+(defn y [this] (get this 1 0))
 
 (defn dot [this that] (loop [row (int 0) accum 0]
                         (if (< row (rows this))
-                          (recur (unchecked-inc row) (+ accum (* (get (data this) row 0)
-                                                                 (get (data that) row 0))))
+                          (recur (unchecked-inc row) (+ accum (* (get this row 0)
+                                                                 (get that row 0))))
                           accum)))
 
 (defn cross [this that] (- (* (x this) (y that)) (* (x that) (y this))))
@@ -284,7 +295,7 @@ limitations under the License.
 
 (defn allocate
   "Returns a matrix with the specified rows and columns"
-  ([rows] (alloc rows 1))
+  ([rows] (allocate rows 1))
   ([rows columns] (Matrix. (make-array Float/TYPE rows columns))))
 
 (defn rotation-matrix

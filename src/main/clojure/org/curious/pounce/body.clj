@@ -1,18 +1,17 @@
-"
-Copyright 2010 Jarl Haggerty
+(comment
+  Copyright 2010 Jarl Haggerty
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
-       
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"
+  http://www.apache.org/licenses/LICENSE-2.0
+  
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.)
 
 (ns org.curious.pounce.body
   "Defines the body structure and methods for simulating forces on it and calculating collisions."
@@ -56,12 +55,14 @@ limitations under the License.
            true)))
 
 (defn update [this delta]
-  (let [new-linear-velocity (if (:kinematic this)
+  (let [new-linear-momentum (matrix/add (:linear-momentum this) (matrix/mul (:external-force this) delta))
+        new-angular-momentum (+ (:angular-momentum this) (* (:external-torque this) delta))
+        new-linear-velocity (if (:kinematic this)
                               (:linear-velocity this)
-                              (matrix/div (:linear-momentum this) (:mass this)))
+                              (matrix/div new-linear-momentum (:mass this)))
         new-angular-velocity (if (:kinematic this)
                               (:angular-velocity this)
-                              (/ (:angular-momentum this) (:moment-of-inertia this)))
+                              (/ new-angular-momentum (:moment-of-inertia this)))
         rotation-matrix (matrix/rotation-matrix (* delta new-angular-velocity))
         center (matrix/transform (:center-of-mass this) (:transformation this))]
     (assoc this
@@ -74,7 +75,11 @@ limitations under the License.
                                                          center)
                                              (matrix/mul (-> this :transformation :rotation) rotation-matrix))
       :linear-velocity new-linear-velocity
-      :angular-velocity new-angular-velocity)))
+      :angular-velocity new-angular-velocity
+      :linear-momentum new-linear-momentum
+      :angular-momentum new-angular-momentum
+      :external-force (matrix/create 0 0)
+      :external-torque 0)))
 
 (defn collisions [this that]
   (map #(assoc %

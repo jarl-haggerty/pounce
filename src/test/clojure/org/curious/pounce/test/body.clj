@@ -12,6 +12,8 @@
                                                 math/positive-infinity
                                                 (matrix/create 0 0)
                                                 (matrix/create 0 0)
+                                                (matrix/create 0 0)
+                                                0
                                                 0
                                                 0
                                                 math/positive-infinity
@@ -23,6 +25,8 @@
                                                 1/6
                                                 (matrix/create 0 0)
                                                 (matrix/create 0 0)
+                                                (matrix/create 0 0)
+                                                0
                                                 0
                                                 0
                                                 1
@@ -34,6 +38,8 @@
                                                 1/6
                                                 (matrix/create 0 0)
                                                 (matrix/create 0 0)
+                                                (matrix/create 0 0)
+                                                0
                                                 0
                                                 0
                                                 1
@@ -46,6 +52,8 @@
                                                 1/6
                                                 (matrix/create 0 0)
                                                 (matrix/create 0 0)
+                                                (matrix/create 0 0)
+                                                0
                                                 0
                                                 0
                                                 1

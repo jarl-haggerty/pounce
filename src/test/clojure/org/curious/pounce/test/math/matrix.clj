@@ -84,9 +84,9 @@
 (test/deftest set-test-1
   (test/is (= (matrix/set (matrix/clone test-matrix-3x3) 1 1 1) (matrix/create [1 2 3] [4 1 6] [7 8 9]))))
 (test/deftest set-test-2
-  (test/is (= (matrix/set (matrix/clone test-multi-matrix-2x2) 1 1 (matrix/create [10 11] [12 13])) (doto (matrix/multi-matrix 2 2 2 2)
-                                                                                                      (matrix/set 0 0 test-matrix-2x2)
-                                                                                                      (matrix/set 1 1 (matrix/create [10 11] [12 13]))))))
+  (test/is (= (matrix/batch-set (matrix/clone test-multi-matrix-2x2) 1 1 (matrix/create [10 11] [12 13])) (doto (matrix/multi-matrix 2 2 2 2)
+                                                                                                      (matrix/batch-set 0 0 test-matrix-2x2)
+                                                                                                      (matrix/batch-set 1 1 (matrix/create [10 11] [12 13]))))))
 (test/deftest add-test-1
   (test/is (= (matrix/add test-matrix-2x2 test-matrix-2x2) (matrix/create [2 4] [6 8]))))
 (test/deftest add-test-2
