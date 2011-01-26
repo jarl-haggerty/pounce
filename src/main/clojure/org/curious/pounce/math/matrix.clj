@@ -145,7 +145,7 @@
                                   (aget diagonal row)
                                   0))
   (set [this row column value] (if (= row column)
-                                 (aset-float diagonal row column value)
+                                 (aset-float diagonal row value)
                                  (throw (Exception. "Cannot alter non-diagonal entries in diagonal matrix.")))
        this)
   (batch-set [this row column value] (throw (Exception. "batch-set not available for diagonal matrices.")) this)
@@ -157,8 +157,18 @@
 (defn transpose [this]
   (TransposeMatrix. this))
 
-(defn diagonal-matrix [size]
-  (DiagonalMatrix. (float-array size)))
+(defn diagonal-matrix-from-seq [arg]
+  (let [data (float-array (count arg))]
+    (println (alength data))
+    (doall (map-indexed #(aset-float data %1 %2) arg))
+    (DiagonalMatrix. data)))
+
+(defn diagonal-matrix [& args]
+  (if (number? (first args))
+    (if (= (count args) 1)
+      (DiagonalMatrix. (float-array (first args)))
+      (diagonal-matrix-from-seq args))
+    (diagonal-matrix-from-seq (first args))))
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
@@ -243,7 +253,7 @@
                                  (recur (unchecked-inc column))))
                              (recur (unchecked-inc row))))
                          (Matrix. new-data))
-        (instance? Matrix that) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
+        (extends? Table (class that)) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
                                   (loop [row (int 0)]
                                     (when (< row (rows this))
                                       (loop [column (int 0)]

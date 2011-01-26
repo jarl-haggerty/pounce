@@ -66,35 +66,3 @@
   (test/is (= (shape/translate test-circle-1 (matrix/create 1 2)) (shape/circle [1 2] 1))))
 (test/deftest circle-rotation-test
   (test/is (= (shape/rotate test-circle-1 (matrix/rotation-matrix (/ math/pi 2))) (shape/circle [0 0] 1))))
-(test/deftest polygon-polygon-collision-test-1
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-1 (matrix/create 1 0)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 0) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1) (matrix/create 1 0)]}
-                             {:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1) (matrix/create 1 0)]}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second actual-collisions) (second expected-collisions)))))
-(test/deftest polygon-polygon-collision-test-2
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-2 (matrix/create 1 0)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 0) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1/2) (matrix/create 1 0)]}
-                             {:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1/2) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1/2) (matrix/create 1 0)]}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second actual-collisions) (second expected-collisions)))))
-(test/deftest polygon-polygon-collision-test-3
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-2 (matrix/create 1 1/2)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1/2) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1) (matrix/create 1 1/2)]}
-                             {:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 1) (matrix/create 1 1/2)]}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second actual-collisions) (second expected-collisions)))))
-(test/deftest polygon-polygon-collision-test-4
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-2 (matrix/create 1 1/4)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1/4) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 3/4) (matrix/create 1 1/4)]}
-                             {:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 3/4) :face1 [(matrix/create 1 0) (matrix/create 1 1)] :face2 [(matrix/create 1 3/4) (matrix/create 1 1/4)]}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second actual-collisions) (second expected-collisions)))))
-(test/deftest polygon-polygon-collision-test-5
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-1 (matrix/create 1 1)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 1)}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))))
-(test/deftest polygon-polygon-collision-test-6
-  (let [actual-collisions (shape/collision test-polygon-1 (shape/translate test-polygon-1 (matrix/create 1 -1)))
-        expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 0)}]]
-    (test/is (shape/collision= (first actual-collisions) (first expected-collisions)))))

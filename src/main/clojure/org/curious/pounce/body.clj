@@ -21,7 +21,7 @@
             [org.curious.pounce.math.matrix :as matrix]
             [org.curious.pounce.render :as render]))
 
-(defrecord Body [transformation shapes moment-of-inertia external-force linear-momentum linear-velocity external-torque angular-momentum angular-velocity mass center-of-mass kinematic live]
+(defrecord Body [transformation shapes moment-of-inertia external-force linear-momentum linear-velocity external-torque angular-momentum angular-velocity mass center-of-mass kinematic]
   render/Renderable
   (render [this graphics] (doseq [shape shapes]
                             (render/render (shape/transform shape transformation) graphics))))
@@ -51,8 +51,7 @@
            0
            mass
            center-of-mass
-           false
-           true)))
+           false)))
 
 (defn update [this delta]
   (let [new-linear-momentum (matrix/add (:linear-momentum this) (matrix/mul (:external-force this) delta))
@@ -80,16 +79,3 @@
       :angular-momentum new-angular-momentum
       :external-force (matrix/create 0 0)
       :external-torque 0)))
-
-(defn collisions [this that]
-  (map #(assoc %
-          :body1 (:id this)
-          :body2 (:id that))
-       (->> (for [shape1 (:shapes this)
-                  shape2 (:shapes that)]
-              (shape/collision (shape/transform shape1 (:transformation this))
-                               (shape/transform shape2 (:transformation that))))
-            flatten
-            (filter identity))))
-
-(defmulti process-contact #(hash-set (:body1 %) (:body2 %)))

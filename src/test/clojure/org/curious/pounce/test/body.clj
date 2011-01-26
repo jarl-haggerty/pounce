@@ -18,8 +18,7 @@
                                                 0
                                                 math/positive-infinity
                                                 (matrix/create 1/2 1/2)
-                                                false
-                                                true))
+                                                false))
 (def test-body-2 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
                                                 [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
                                                 1/6
@@ -31,8 +30,7 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false
-                                                true))
+                                                false))
 (def test-body-3 (org.curious.pounce.body.Body. (matrix/transformation 1 2 (/ math/pi 2))
                                                 [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
                                                 1/6
@@ -44,8 +42,7 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false
-                                                true))
+                                                false))
 (def test-body-4 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
                                                [(shape/polygon 1 [(- (math/sqrt 2)) 0] [(- (/ (math/sqrt 2))) (- (/ (math/sqrt 2)))] [0 0] [(- (/ (math/sqrt 2))) (/ (math/sqrt 2))])
                                                 (shape/polygon 1 [0 0] [(/ (math/sqrt 2)) (- (/ (math/sqrt 2)))] [(math/sqrt 2) 0] [(/ (math/sqrt 2)) (/ (math/sqrt 2))])]
@@ -58,8 +55,7 @@
                                                 0
                                                 1
                                                 (matrix/create 1/2 1/2)
-                                                false
-                                                true))
+                                                false))
 
 (test/deftest body-test
   (test/is (= (body/create test-polygon-1) test-body-1))
@@ -87,38 +83,3 @@
                 :linear-velocity (matrix/create 1 0)
                 :linear-momentum (matrix/create 1 0)
                 :transformation (matrix/transformation 2 1 math/pi)))))
-
-(test/deftest collisions-test-1
-  (let [result-collisions (body/collisions (assoc test-body-1 :id 1) (assoc test-body-1 :transformation (matrix/transformation 1 0 0) :id 2))
-        expected-collisions [{:normal (matrix/create 1 0)
-                              :depth 0
-                              :point (matrix/create 1 0)
-                              :face1 [(matrix/create 1 0) (matrix/create 1 1)]
-                              :face2 [(matrix/create 1 1) (matrix/create 1 0)]
-                              :body1 1
-                              :body2 2}
-                             {:normal (matrix/create 1 0)
-                              :depth 0
-                              :point (matrix/create 1 1)
-                              :face1 [(matrix/create 1 0) (matrix/create 1 1)]
-                              :face2 [(matrix/create 1 1) (matrix/create 1 0)]
-                              :body1 1
-                              :body2 2}]]
-    (test/is (= (count result-collisions) (count expected-collisions)))
-    (test/is (shape/collision= (first result-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second result-collisions) (second expected-collisions)))))
-(test/deftest collisions-test-2
-  (let [result-collisions (body/collisions (assoc test-body-4 :transformation (matrix/transformation 0 (/ (math/sqrt 2)) 0) :id 1) (assoc test-body-4 :transformation (matrix/transformation 0 (- (/ (math/sqrt 2))) 0) :id 2))
-        expected-collisions [{:normal (matrix/create (/ (math/sqrt 2)) (- (/ (math/sqrt 2))))
-                              :depth 0
-                              :point (matrix/create (- (/ (math/sqrt 2))) 0)
-                              :body1 1
-                              :body2 2}
-                             {:normal (matrix/create (/ (math/sqrt 2)) (- (/ (math/sqrt 2))))
-                              :depth 0
-                              :point (matrix/create (/ (math/sqrt 2)) 0)
-                              :body1 1
-                              :body2 2}]]
-    (test/is (= (count result-collisions) (count expected-collisions)))
-    (test/is (shape/collision= (first result-collisions) (first expected-collisions)))
-    (test/is (shape/collision= (second result-collisions) (second expected-collisions)))))
