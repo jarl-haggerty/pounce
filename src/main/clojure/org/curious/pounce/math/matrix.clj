@@ -157,18 +157,13 @@
 (defn transpose [this]
   (TransposeMatrix. this))
 
-(defn diagonal-matrix-from-seq [arg]
-  (let [data (float-array (count arg))]
-    (println (alength data))
-    (doall (map-indexed #(aset-float data %1 %2) arg))
+(defn diagonal-matrix [& args]
+  (let [data (float-array (count args))]
+    (doall (map-indexed #(aset-float data %1 %2) args))
     (DiagonalMatrix. data)))
 
-(defn diagonal-matrix [& args]
-  (if (number? (first args))
-    (if (= (count args) 1)
-      (DiagonalMatrix. (float-array (first args)))
-      (diagonal-matrix-from-seq args))
-    (diagonal-matrix-from-seq (first args))))
+(defn allocate-diagonal-matrix [size]
+  (DiagonalMatrix. (float-array size)))
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
@@ -243,33 +238,38 @@
        (reduce sub-in-place (sub this that) others)))
 
 (defn mul
-  [this that]
-  (cond (number? that) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
-                         (loop [row (int 0)]
-                           (when (< row (rows this))
-                             (loop [column (int 0)]
-                               (when (< column (columns this))
-                                 (aset-float new-data row column (* (get this row column) that))
-                                 (recur (unchecked-inc column))))
-                             (recur (unchecked-inc row))))
-                         (Matrix. new-data))
-        (extends? Table (class that)) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
-                                  (loop [row (int 0)]
-                                    (when (< row (rows this))
-                                      (loop [column (int 0)]
-                                        (when (< column (columns that))
-                                          (loop [index (int 0)]
-                                            (when (< index (columns this))
-                                              (aset-float new-data row column (+ (aget new-data row column)
-                                                                                 (* (get this row index)
-                                                                                    (get that index column))))
-                                              (recur (unchecked-inc index))))
-                                          (recur (unchecked-inc column))))
-                                      (recur (unchecked-inc row))))
-                                  (Matrix. new-data))))
+  ([this that]
+     (cond (number? that) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+                            (loop [row (int 0)]
+                              (when (< row (rows this))
+                                (loop [column (int 0)]
+                                  (when (< column (columns this))
+                                    (aset-float new-data row column (* (get this row column) that))
+                                    (recur (unchecked-inc column))))
+                                (recur (unchecked-inc row))))
+                            (Matrix. new-data))
+           (extends? Table (class that)) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
+                                           (loop [row (int 0)]
+                                             (when (< row (rows this))
+                                               (loop [column (int 0)]
+                                                 (when (< column (columns that))
+                                                   (loop [index (int 0)]
+                                                     (when (< index (columns this))
+                                                       (aset-float new-data row column (+ (aget new-data row column)
+                                                                                          (* (get this row index)
+                                                                                             (get that index column))))
+                                                       (recur (unchecked-inc index))))
+                                                   (recur (unchecked-inc column))))
+                                               (recur (unchecked-inc row))))
+                                           (Matrix. new-data))))
+  ([this that & more]
+     (reduce mul (mul this that) more)))
 
 (defn div [this that] (mul this (/ that)))
 
+(def zero (Matrix. (doto (make-array Float/TYPE 2 1)
+                     (aset-float 0 0 0)
+                     (aset-float 1 0 0))))
 (defn x [this] (get this 0 0))
 (defn y [this] (get this 1 0))
 
@@ -300,6 +300,23 @@
                  (number? (first args)) (let [new-data (make-array Float/TYPE (count args) 1)]
                                           (dorun (map-indexed (fn [row value]
                                                                 (aset-float new-data row 0 value))
+                                                              args))
+                                          (Matrix. new-data))))
+
+(defn column-matrix
+  [& args] (apply create args))
+(defn row-matrix
+  [& args] (cond (instance? Matrix (first args)) (first args)
+                 (sequential? (first args)) (let [new-data (make-array Float/TYPE (count args) (count (first args)))]
+                                              (dorun (map-indexed (fn [row row-data]
+                                                                    (dorun (map-indexed (fn [column value]
+                                                                                          (aset-float new-data row column value))
+                                                                                        row-data)))
+                                                                  args))
+                                              (Matrix. new-data))
+                 (number? (first args)) (let [new-data (make-array Float/TYPE 1 (count args))]
+                                          (dorun (map-indexed (fn [column value]
+                                                                (aset-float new-data 0 column value))
                                                               args))
                                           (Matrix. new-data))))
 

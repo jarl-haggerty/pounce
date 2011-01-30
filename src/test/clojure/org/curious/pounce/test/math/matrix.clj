@@ -3,8 +3,6 @@
             [org.curious.pounce.math.core :as math]
             [org.curious.pounce.math.matrix :as matrix]))
 
-(println (matrix/mul (matrix/transpose (matrix/create 0 -1 0 0 1 0)) (matrix/diagonal-matrix math/positive-infinity math/positive-infinity math/positive-infinity 1 1 1/6)))
-
 (def test-matrix-2x1 (org.curious.pounce.math.matrix.Matrix. (doto (make-array Float/TYPE 2 1)
                                                                (aset-float 0 0 1)
                                                                (aset-float 1 0 2))))

@@ -50,7 +50,7 @@
         expected-collisions [{:normal (matrix/create 1 0) :depth 0 :point (matrix/create 1 0)}]]
     (test/is (collision/collision= (first actual-collisions) (first expected-collisions)))))
 
-(test/deftest collisions-test-1
+(test/deftest body-collisions-test-1
   (let [result-collisions (collision/get-body-collisions-with-separating-axis (assoc test-body-1 :id 1) (assoc test-body-1 :transformation (matrix/transformation 1 0 0) :id 2))
         expected-collisions [{:normal (matrix/create 1 0)
                               :depth 0
@@ -69,9 +69,9 @@
     (test/is (= (count result-collisions) (count expected-collisions)))
     (test/is (collision/collision= (first result-collisions) (first expected-collisions)))
     (test/is (collision/collision= (second result-collisions) (second expected-collisions)))))
-(test/deftest collisions-test-2
+(test/deftest body-collisions-test-2
   (let [result-collisions (collision/get-body-collisions-with-separating-axis (assoc test-body-4 :transformation (matrix/transformation 0 (/ (math/sqrt 2)) 0) :id 1)
-                                                (assoc test-body-4 :transformation (matrix/transformation 0 (- (/ (math/sqrt 2))) 0) :id 2))
+                            (assoc test-body-4 :transformation (matrix/transformation 0 (- (/ (math/sqrt 2))) 0) :id 2))
         expected-collisions [{:normal (matrix/create (/ (math/sqrt 2)) (- (/ (math/sqrt 2))))
                               :depth 0
                               :point (matrix/create (- (/ (math/sqrt 2))) 0)
@@ -86,4 +86,35 @@
     (test/is (collision/collision= (first result-collisions) (first expected-collisions)))
     (test/is (collision/collision= (second result-collisions) (second expected-collisions)))))
 
+(test/deftest collision-detection-test
+  (let [result-collisions (collision/separating-axis-collision-detection [(assoc test-body-4 :transformation (matrix/transformation 0 (/ (math/sqrt 2)) 0) :id 1)
+                                                                          (assoc test-body-4 :transformation (matrix/transformation 0 (- (/ (math/sqrt 2))) 0) :id 2)
+                                                                          (assoc test-body-1 :transformation (matrix/transformation (+ (/ (math/sqrt 2)) (/ 1 2 (math/sqrt 2)))
+                                                                                                                                    (+ (/ (math/sqrt 2)) (/ 1 2 (math/sqrt 2)))
+                                                                                                                                    0)
+                                                                                 :id 3)])
+        expected-collisions [{:normal (matrix/create (/ (math/sqrt 2)) (- (/ (math/sqrt 2))))
+                              :depth 0
+                              :point (matrix/create (- (/ (math/sqrt 2))) 0)
+                              :body1 1
+                              :body2 2}
+                             {:normal (matrix/create (/ (math/sqrt 2)) (- (/ (math/sqrt 2))))
+                              :depth 0
+                              :point (matrix/create (/ (math/sqrt 2)) 0)
+                              :body1 1
+                              :body2 2}
+                             {:normal (matrix/create (/ (math/sqrt 2)) (/ (math/sqrt 2)))
+                              :depth 0
+                              :point (matrix/create (+ (/ (math/sqrt 2)) (/ 1 2 (math/sqrt 2))) (+ (/ (math/sqrt 2)) (/ 1 2 (math/sqrt 2))))
+                              :body1 1
+                              :body2 3}]]
+    (test/is (= (count result-collisions) (count expected-collisions)))
+    (test/is (collision/collision= (first result-collisions) (first expected-collisions)))
+    (test/is (collision/collision= (second result-collisions) (second expected-collisions)))
+    (test/is (collision/collision= (nth result-collisions 2) (nth expected-collisions 2)))))
 
+(test/deftest collision-response-test
+  (let [bodies {1 (assoc test-body-1 :id 1)
+                2 (assoc (body/create (matrix/transformation 1/2 1 (/ math/pi 4)) (shape/polygon 1 [0 0] [1 0] [1 1] [0 1])) :id 2)}
+        collisions (collision/separating-axis-collision-detection (vals bodies))
+        response (collision/velocity-based-collision-response bodies collisions {2 {:force (matrix/create 0 -1)}} (/ 60))]))
