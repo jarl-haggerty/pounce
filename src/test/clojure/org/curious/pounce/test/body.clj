@@ -7,55 +7,47 @@
 
 (def test-polygon-1 (shape/polygon [0 0] [1 0] [1 1] [0 1]))
 (def test-polygon-2 (shape/polygon 1 [0 0] [1 0] [1 1] [0 1]))
-(def test-body-1 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
-                                                [(shape/polygon [0 0] [1 0] [1 1] [0 1])]
-                                                math/positive-infinity
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                0
-                                                0
-                                                0
-                                                math/positive-infinity
-                                                (matrix/create 1/2 1/2)
-                                                false))
-(def test-body-2 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
-                                                [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
-                                                1/6
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                0
-                                                0
-                                                0
-                                                1
-                                                (matrix/create 1/2 1/2)
-                                                false))
-(def test-body-3 (org.curious.pounce.body.Body. (matrix/transformation 1 2 (/ math/pi 2))
-                                                [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
-                                                1/6
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                0
-                                                0
-                                                0
-                                                1
-                                                (matrix/create 1/2 1/2)
-                                                false))
-(def test-body-4 (org.curious.pounce.body.Body. (matrix/transformation 0 0 0)
-                                               [(shape/polygon 1 [(- (math/sqrt 2)) 0] [(- (/ (math/sqrt 2))) (- (/ (math/sqrt 2)))] [0 0] [(- (/ (math/sqrt 2))) (/ (math/sqrt 2))])
-                                                (shape/polygon 1 [0 0] [(/ (math/sqrt 2)) (- (/ (math/sqrt 2)))] [(math/sqrt 2) 0] [(/ (math/sqrt 2)) (/ (math/sqrt 2))])]
-                                                1/6
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                (matrix/create 0 0)
-                                                0
-                                                0
-                                                0
-                                                1
-                                                (matrix/create 1/2 1/2)
-                                                false))
+(def test-body-1 {:transformation (matrix/transformation 0 0 0)
+		  :shapes [(shape/polygon [0 0] [1 0] [1 1] [0 1])]
+		  :moment-of-inertia math/positive-infinity
+		  :linear-momentum (matrix/column 0 0)
+		  :linear-velocity (matrix/column 0 0)
+		  :angular-momentum 0
+		  :angular-velocity 0
+		  :mass math/positive-infinity
+		  :center-of-mass (matrix/column 1/2 1/2)
+		  :kinematic true})
+(def test-body-2 {:transformation (matrix/transformation 0 0 0)
+		  :shapes [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
+		  :moment-of-inertia 1/6
+		  :linear-momentum (matrix/column 0 0)
+		  :linear-velocity (matrix/column 0 0)
+		  :angular-momentum 0
+		  :angular-velocity 0
+		  :mass 1
+		  :center-of-mass (matrix/column 1/2 1/2)
+		  :kinematic false})
+(def test-body-3 {:transformation (matrix/transformation 1 2 (/ math/pi 2))
+		  :shapes [(shape/polygon 1 [0 0] [1 0] [1 1] [0 1])]
+		  :moment-of-inertia 1/6
+		  :linear-momentum (matrix/column 0 0)
+		  :linear-velocity (matrix/column 0 0)
+		  :angular-momentum 0
+		  :angular-velocity 0
+		  :mass 1
+		  :center-of-mass (matrix/column 1/2 1/2)
+		  :kinematic false})
+(def test-body-4 {:transformation (matrix/transformation 0 0 0)
+		  :shapes [(shape/polygon 1 [(- (math/sqrt 2)) 0] [(- (/ (math/sqrt 2))) (- (/ (math/sqrt 2)))] [0 0] [(- (/ (math/sqrt 2))) (/ (math/sqrt 2))])
+			   (shape/polygon 1 [0 0] [(/ (math/sqrt 2)) (- (/ (math/sqrt 2)))] [(math/sqrt 2) 0] [(/ (math/sqrt 2)) (/ (math/sqrt 2))])]
+		  :moment-of-inertia 1/6
+		  :linear-momentum (matrix/column 0 0)
+		  :linear-velocity (matrix/column 0 0)
+		  :angular-momentum 0
+		  :angular-velocity 0
+		  :mass 1
+		  :center-of-mass (matrix/column 1/2 1/2)
+		  :kinematic false})
 
 (test/deftest body-test
   (test/is (= (body/create test-polygon-1) test-body-1))
@@ -65,21 +57,21 @@
 (test/deftest update-test
   (test/is (= (body/update (assoc test-body-2
                              :angular-velocity (/ math/pi 2)
-                             :linear-velocity (matrix/create 1 0)
+                             :linear-velocity (matrix/column 1 0)
                              :kinematic true)
-                           1)
+                           1 matrix/zero 0 nil)
               (assoc test-body-2
                 :angular-velocity (/ math/pi 2)
-                :linear-velocity (matrix/create 1 0)
+                :linear-velocity (matrix/column 1 0)
                 :transformation (matrix/transformation 2 0 (/ math/pi 2))
                 :kinematic true)))
-  (test/is (= (body/update (assoc test-body-2
+  (test/is (body/body= (body/update (assoc test-body-2
                              :angular-momentum (/ math/pi 6)
-                             :linear-momentum (matrix/create 1 0))
-                           1)
+                             :linear-momentum (matrix/column 1 0))
+                           1 matrix/zero 0 matrix/zero)
               (assoc test-body-2
                 :angular-velocity math/pi
                 :angular-momentum (/ math/pi 6)
-                :linear-velocity (matrix/create 1 0)
-                :linear-momentum (matrix/create 1 0)
+                :linear-velocity (matrix/column 1 0)
+                :linear-momentum (matrix/column 1 0)
                 :transformation (matrix/transformation 2 1 math/pi)))))

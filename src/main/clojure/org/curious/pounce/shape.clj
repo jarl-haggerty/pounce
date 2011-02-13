@@ -17,18 +17,17 @@
   "Defines shape structure and functions for working with them."
   (:import java.awt.Color)
   (:require [org.curious.pounce.math.core :as math]
-            [org.curious.pounce.math.matrix :as matrix]
-            [org.curious.pounce.render :as render]))
+            [org.curious.pounce.math.matrix :as matrix]))
 
 (defprotocol Shape
   (normals [this direction])
   (projection [this line])
   (transform [this t])
   (translate [this t])
-  (rotate [this t]))
+  (rotate [this t])
+  (render [this graphics]))
 
 (def polygon)
-(def circle)
 
 (defrecord Polygon [points mass center normals moment-of-inertia]
   Shape
@@ -59,12 +58,11 @@
                                          [(circ-points (dec back-point-index)) back-point]
                                          [back-point])]]
                              {:start (first front) :stop (first back) :start-points (second front) :stop-points (second back)}))
-  (transform [this t] (apply polygon mass (map #(matrix/transform % t) points)))
-  (translate [this t] (apply polygon mass (map #(matrix/add t %) points)))
-  (rotate [this t] (apply polygon mass (map #(matrix/mul t %) points)))
-  render/Renderable
+  (transform [this t] (Polygon. (map #(matrix/transform % t) points) mass (matrix/transform center t) (map #(matrix/mul (:rotation t) %) normals) moment-of-inertia))
+;  (apply polygon mass (map #(matrix/add t %) points))
+  (translate [this t] (Polygon. (vec (map #(matrix/add t %) points)) mass (matrix/add t center) normals moment-of-inertia))
+  (rotate [this t] (Polygon. (vec (map #(matrix/mul t %) points)) mass (matrix/mul t center) (vec (map #(matrix/mul t %) normals)) moment-of-inertia))
   (render [this graphics]
-          (.setColor graphics Color/white)
           (doseq [[v1 v2] (map vector
                                points
                                (conj (vec (rest points)) (first points)))]
@@ -80,12 +78,10 @@
                :stop (+ (matrix/dot center line) radius)
                :start-points [(matrix/sub center (matrix/mul line radius))]
                :stop-points [(matrix/add center (matrix/mul line radius))]})
-  (transform [this t] (circle mass (matrix/transform center t) radius))
-  (translate [this t] (circle mass (matrix/add t center) radius))
-  (rotate [this t] (circle mass (matrix/mul t center) radius))
-  render/Renderable
+  (transform [this t] (Circle. (matrix/transform center t) mass radius moment-of-inertia))
+  (translate [this t] (Circle. (matrix/add t center) mass radius moment-of-inertia))
+  (rotate [this t] (Circle. (matrix/mul t center) mass radius moment-of-inertia))
   (render [this graphics]
-          (.setColor graphics Color/white)
           (.drawOval graphics
                      (- (matrix/x center) radius)
                      (- (matrix/y center) radius)
@@ -96,8 +92,8 @@
   "Creates a shape with mass as the first argument and vetices as the rest, or, if the first argument isn't a scalar all the
    arguments will be used as vertices and the shape will have an infinite mass"
   (let [[mass points] (if (number? raw-mass)
-                        [raw-mass (vec (map matrix/create raw-points))]
-                        [math/positive-infinity (vec (map matrix/create (cons raw-mass raw-points)))])
+                        [raw-mass (vec (map matrix/mat raw-points))]
+                        [math/positive-infinity (vec (map matrix/mat (cons raw-mass raw-points)))])
         center (matrix/div (reduce matrix/add points) (count points))
         sides (map #(vector %1 %2) points (conj (vec (rest points)) (first points)))
         moment-of-inertia (* mass 1/6
@@ -123,7 +119,7 @@
    specified center and radius."
   ([center radius] (circle math/positive-infinity center radius))
   ([mass center radius]
-     (Circle. (matrix/create center)
+     (Circle. (matrix/mat center)
               mass
               radius
               (* mass radius radius 1/2))))

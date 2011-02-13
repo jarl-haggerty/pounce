@@ -5,10 +5,7 @@
             [org.curious.pounce.shape :as shape]))
 
 (defmulti process-collision #(hash-set (:body1 %) (:body2 %)))
-
-(defn collision= [this that]
-  (and (math/eps= (:depth this) (:depth that))
-       (= (dissoc this :depth) (dissoc that :depth))))
+(defmethod process-collision :default [contact])
 
 (defn get-shape-collision-with-separating-axis
   "Calculates all the points of collisions that will occur in the next delta seconds between two bodies, neglecting rotation."
@@ -89,10 +86,9 @@
           :body2 (:id that))
        (->> (for [shape1 (:shapes this)
                   shape2 (:shapes that)]
-              (get-shape-collision-with-separating-axis (shape/transform shape1 (:transformation this))
-                               (shape/transform shape2 (:transformation that))))
+              (get-shape-collision-with-separating-axis (shape/transform shape1 (:transformation this)) (shape/transform shape2 (:transformation that))))
             flatten
-            (filter identity))))
+            (keep identity))))
 
 (defn separating-axis-collision-detection [bodies]
   (loop [body-stack bodies accum ()]
@@ -100,89 +96,53 @@
       (recur rest-bodies (concat accum (flatten (map #(get-body-collisions-with-separating-axis (first body-stack) %) rest-bodies))))
       (vec accum))))
 
-(defn velocity-based-collision-response [bodies contacts perturbations delta]
-  (let [merge-function (fn [x y] (if (number? x)
-                                  (+ x y)
-                                  (matrix/add x y))
-                         x y)
-        G (let [G (matrix/multi-matrix 1 6 (count contacts) (count contacts))]
-            (doseq [index (-> contacts count range)
-                    :let [contact (contacts index)
-                          normal (:normal contact)
-                          negative-normal (matrix/sub normal)
-                          body1 (get bodies (:body1 contact))
-                          body2 (get bodies (:body2 contact))]]
-              (matrix/batch-set G index index (matrix/row-matrix (matrix/x negative-normal)
-                                                                 (matrix/y negative-normal)
-                                                                 (- (matrix/cross (matrix/sub (:point contact)
-                                                                                              (matrix/transform (:center-of-mass body1) (:transformation body1)))
-                                                                                  (:normal contact)))
-                                                                 (matrix/x normal)
-                                                                 (matrix/y normal)
-                                                                 (matrix/cross (matrix/sub (:point contact)
-                                                                                           (matrix/transform (:center-of-mass body2) (:transformation body2)))
-                                                                               (:normal contact)))))
-            G)
-        F (let [F (matrix/allocate (* 6 (count contacts)))]
-            (doseq [index (-> contacts count range)
-                    :let [contact (contacts index)
-                          body1 (get perturbations (:body1 contact))
-                          body2 (get perturbations (:body2 contact))
-                          body1-force (matrix/add (get body1 :force matrix/zero) (matrix/div (get body1 :linear-impulse matrix/zero) delta))
-                          body1-torque (+ (get body1 :torque 0) (/ (get body1 :angular-impulse 0) delta))
-                          body2-force (matrix/add (get body2 :force matrix/zero) (matrix/div (get body2 :linear-impulse matrix/zero) delta))
-                          body2-torque (+ (get body2 :torque 0) (/ (get body2 :angular-impulse 0) delta))]]
-              (matrix/set F (* index 6) 0 (matrix/x body1-force))
-              (matrix/set F (+ (* index 6) 1) 0 (matrix/y body1-force))
-              (matrix/set F (+ (* index 6) 2) 0 body1-torque)
-              (matrix/set F (+ (* index 6) 3) 0 (matrix/x body2-force))
-              (matrix/set F (+ (* index 6) 4) 0 (matrix/y body2-force))
-              (matrix/set F (+ (* index 6) 5) 0 body2-torque))
-            F)
-        V (let [V (matrix/allocate (* 6 (count contacts)) 1)]
-            (doseq [index (-> contacts count range)
-                    :let [contact (contacts index)
-                          body1 (get bodies (:body1 contact))
-                          body2 (get bodies (:body2 contact))]]
-              (matrix/set V (* index 6) 0 (matrix/x (:linear-velocity body1)))
-              (matrix/set V (+ (* index 6) 1) 0 (matrix/y (:linear-velocity body1)))
-              (matrix/set V (+ (* index 6) 2) 0 (:angular-velocity body1))
-              (matrix/set V (+ (* index 6) 3) 0 (matrix/x (:linear-velocity body2)))
-              (matrix/set V (+ (* index 6) 4) 0 (matrix/y (:linear-velocity body2)))
-              (matrix/set V (+ (* index 6) 5) 0 (:angular-velocity body2)))
-            V)
-        M-inverse (let [M-inverse (matrix/allocate-diagonal-matrix (* 6 (count contacts)))]
-                    (doseq [index (-> contacts count range)
-                            :let [contact (contacts index)
-                                  body1 (get bodies (:body1 contact))
-                                  body2 (get bodies (:body2 contact))]]
-                      (matrix/set M-inverse (* index 6) (* index 6) (/ (:mass body1)))
-                      (matrix/set M-inverse (+ (* index 6) 1) (+ (* index 6) 1) (/ (:mass body1)))
-                      (matrix/set M-inverse (+ (* index 6) 2) (+ (* index 6) 2) (/ (:moment-of-inertia body1)))
-                      (matrix/set M-inverse (+ (* index 6) 3) (+ (* index 6) 3) (/ (:mass body2)))
-                      (matrix/set M-inverse (+ (* index 6) 4) (+ (* index 6) 4) (/ (:mass body2)))
-                      (matrix/set M-inverse (+ (* index 6) 5) (+ (* index 6) 5) (/ (:moment-of-inertia body2))))
-                    M-inverse)
-        _ (println G)
-        _ (println M-inverse)
-        G-M-inverse (matrix/mul G M-inverse)
-        G-transpose (matrix/transpose G)
-        _ (println G-M-inverse)
-        _ (println G-transpose)
-        left (matrix/mul G-M-inverse G-transpose)
-                                        ;maybe I'll add constraint bias someday
-        right (matrix/sub (matrix/mul G V (/ (- delta))) (matrix/mul G-M-inverse F))
-        F-hat (matrix/mul G-transpose (matrix/gauss-seidel left right))]
-    (println "lambda" (matrix/gauss-seidel left right))
-    (println "F-hat" F-hat) (comment
-                      (apply merge-with merge-function bodies
-                             (for [index (-> contacts count range)
-                                   :let [contact (contacts index)
-                                         body1 (get-in perturbations (:body1 contact))
-                                         body2 (get-in perturbations (:body2 contact))]]
-                               {(:body1 contact) {:external-force (+ (matrix/create (+ (matrix/get F-hat (* index 6) 0) (matrix/get F (* index 6) 0))
-                                                                                    (+ (matrix/get F-hat (+ (* index 6) 1) 0) (matrix/get F (+ (* index 6) 1) 0))))
-                                                  :external-torque (+ (matrix/get F-hat (+ (* index 3) 2) 0) (matrix/get F (+ (* index 3) 2) 0))}
-                                (:body2 contact) {:external-force (+ (matrix/create (+ (matrix/get F-hat (+ (* index 6) 3) 0) (matrix/get F (+ (* index 6) 3) 0))
-                                                                                    (+ (matrix/get F-hat (+ (* index 6) 4) 0) (matrix/get F (+ (* index 6) 4) 0))))
-                                                  :external-torque (+ (matrix/get F-hat (+ (* index 3) 5) 0) (matrix/get F (+ (* index 3) 5) 0))}})))))
+(defn velocity-based-collision-response [bodies contacts perturbations delta cached-collisions]
+  (if-let [involved-bodies (seq (-> (map #(vector (:body1 %) (:body2 %)) contacts) flatten distinct))]
+    (let [body-map (into {} (map #(vector %1 %2) involved-bodies (-> involved-bodies count range)))
+	  G (let [G (matrix/multi-matrix 1 3 (count contacts) (count involved-bodies))]
+	      (doseq [index (-> contacts count range)
+		      :let [contact (contacts index)
+			    normal (:normal contact)
+			    negative-normal (matrix/sub normal)
+			    body1 (get bodies (:body1 contact))
+			    body2 (get bodies (:body2 contact))]]
+		(matrix/batch-set G index (get body-map (:body1 contact))
+				  (matrix/row (matrix/x negative-normal)
+                                              (matrix/y negative-normal)
+                                              (- (matrix/cross (matrix/sub (:point contact)
+                                                                           (matrix/transform (:center-of-mass body1) (:transformation body1)))
+                                                               (:normal contact)))))
+		(matrix/batch-set G index (get body-map (:body2 contact))
+				  (matrix/row (matrix/x normal)
+                                              (matrix/y normal)
+                                              (matrix/cross (matrix/sub (:point contact)
+                                                                        (matrix/transform (:center-of-mass body2) (:transformation body2)))
+                                                            (:normal contact)))))
+	      G)
+	  F (apply matrix/column (flatten (for [body involved-bodies]
+						   [(-> (get perturbations body) (get :force matrix/zero) matrix/x)
+						    (-> (get perturbations body) (get :force matrix/zero) matrix/y)
+						    (-> (get perturbations body) (get :torque 0))])))
+	  V (apply matrix/column (flatten (for [body involved-bodies]
+						   [(-> (get bodies body) :linear-velocity matrix/x)
+						    (-> (get bodies body) :linear-velocity matrix/y)
+						    (-> (get bodies body) (get :angular-velocity 0))])))
+	  M-inverse (apply matrix/diagonal-matrix (flatten (for [body involved-bodies]
+							     [(-> (get bodies body) :mass /)
+							      (-> (get bodies body) :mass /)
+							      (-> (get bodies body) :moment-of-inertia /)])))
+	  G-M-inverse (matrix/mul G M-inverse)
+	  G-transpose (matrix/transpose G)
+	  left (matrix/mul G-M-inverse G-transpose)
+	  right (matrix/sub (matrix/mul G V (/ (- delta))) (matrix/mul G-M-inverse F))
+	  F-hat (matrix/mul G-transpose (matrix/gauss-seidel left right 0 math/positive-infinity))
+          baumgarte (apply merge-with matrix/add
+                           (for [contact contacts
+                                 :let [scaled-normal (matrix/mul (:normal contact) (* (:depth contact) (/ 0.5 delta)))]]
+                             {(:body1 contact) (matrix/sub scaled-normal) (:body2 contact) scaled-normal}))]
+      (into {} (for [[body index] body-map]
+		 [body {:force (matrix/column (matrix/get F-hat (* index 3) 0)
+                                              (matrix/get F-hat (+ (* index 3) 1) 0))
+                        :velocity (get baumgarte body)
+			:torque (matrix/get F-hat (+ (* index 3) 2) 0)}])))
+    {}))

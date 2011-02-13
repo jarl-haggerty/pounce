@@ -14,42 +14,51 @@
   limitations under the License.)
 
 (ns org.curious.pounce.simulation
-  (:refer-clojure :exclude [assoc])
+  (:refer-clojure :exclude [assoc get])
   (:import java.awt.Color
            java.awt.Graphics)
   (:require [org.curious.pounce.body :as body]
             [org.curious.pounce.math.core :as math]
             [org.curious.pounce.math.matrix :as matrix]
-            [org.curious.pounce.render :as render]))
+	    [org.curious.pounce.collision :as collision]))
 
-(def next-id (atom -1))
-(defn get-id [] (swap! next-id inc))
+(def next-id (atom 0))
+(defn unique-id [] (swap! next-id inc))
 
-(defrecord Simulation [bodies collision-detection collision-response]
-  render/Renderable
-  (render [this graphics]
-          (.setColor graphics Color/black)
-          (.fillRect graphics 0 0 (-> graphics .getClipBounds .getWidth) (-> graphics .getClipBounds .getHeight))
-          (doseq [x (vals (:bodies sim))]
-            (render x graphics))))
-
-(defn simulation
-  [bodies collision-detection collision-response] (Simulation. bodies collision-detection collision-response))
+(defn create
+  ([] (create {}))
+  ([bodies] (create bodies collision/separating-axis-collision-detection collision/velocity-based-collision-response))
+  ([bodies collision-detection collision-response] {:bodies bodies :collision-detection collision-detection :collision-response collision-response}))
 
 (defn assoc [sim id body]
-  (assoc-in sim :bodies id body))
+  (assoc-in sim [:bodies id] (clojure.core/assoc body :id id)))
 (defn add [sim body]
-  (let [id (get-id)]
-    {:id id :simulation (assoc sim id body)}))
+  (let [id (unique-id)]
+    {:id id :simulation (assoc-in sim [:bodies id] (clojure.core/assoc body :id id))}))
+(defn get [sim id]
+  (get-in sim [:bodies id]))
 
 (defn simulate
   ([sim delta] (simulate sim delta {}))
   ([sim delta perturbations]
-     (let [merge-function (fn [x y] (merge-with #(cond (number? %1) (+ %1 %2)
-                                                      (matrix/matrix? %1) (matrix/add %1 %2)
-                                                      :else %1)
-                                               x y))
-           bodies (into {} (filter #(-> perturbations (get-in (first %) :die) not) (:bodies sim)))
-           new-bodies (if-let [collisions ((:collision-detection sim) (vals bodies))]
-                        ((:collision-response sim) bodies collisions perturbations delta))]
-       (asoc sim :bodies new-bodies))))
+     (let [bodies (into {} (filter #(not (get-in perturbations [(first %) :die])) (:bodies sim)))
+	   collisions ((:collision-detection sim) (-> sim :bodies vals))
+	   response ((:collision-response sim) (:bodies sim) collisions perturbations delta (:cached-collisions sim))
+           perturbations+response (merge-with #(hash-map :force (matrix/add (clojure.core/get %1 :force matrix/zero)
+									    (clojure.core/get %2 :force matrix/zero))
+							 :torque (+ (clojure.core/get %1 :torque 0) (clojure.core/get %2 :torque 0)))
+					      perturbations response)]
+       (doseq [collision collisions]
+	 (collision/process-collision collision))
+       (clojure.core/assoc sim :bodies (into {} (map #(vector (first %)
+                                                              (body/update (second %) delta
+                                                                           (get-in perturbations+response [(first %) :force] matrix/zero)
+                                                                           (get-in perturbations+response [(first %) :torque] 0)
+                                                                           (get-in response [(first %) :velocity] matrix/zero)))
+                                                     bodies))
+                           :cached-collisions collisions))))
+
+(defn render [sim graphics]
+  (.setColor graphics Color/green)
+  (doseq [x (vals (:bodies sim))]
+    (body/render x graphics)))
