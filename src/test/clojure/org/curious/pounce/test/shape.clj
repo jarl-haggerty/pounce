@@ -2,7 +2,6 @@
   (:require [org.curious.pounce.shape :as shape]
             [org.curious.pounce.math.core :as math]
             [org.curious.pounce.math.matrix :as matrix]
-            [org.curious.pounce.render :as render]
             [clojure.test :as test]))
 
 (def test-polygon-1 (org.curious.pounce.shape.Polygon. [(matrix/create 0 0) (matrix/create 1 0) (matrix/create 1 1) (matrix/create 0 1)]
@@ -44,10 +43,7 @@
   (test/is (= (shape/normals test-circle-1 (matrix/create 1 0))
               [{:normal (matrix/create 1 0) :side [(matrix/create 1 0) (matrix/create 1 math/eps)]}])))
 (test/deftest polygon-projection-test
-  (test/is (= (shape/projection test-polygon-1 (matrix/create 1 0))
-              {:start 0 :start-points [(matrix/create 0 1) (matrix/create 0 0)]
-               :stop 1 :stop-points [(matrix/create 1 0) (matrix/create 1 1)]}))
-  (test/is (= (shape/projection test-polygon-1 (matrix/create (/ (math/sqrt 2)) (/ (math/sqrt 2))))
+  (test/is (shape/projection= (shape/projection test-polygon-1 (matrix/create (/ (math/sqrt 2)) (/ (math/sqrt 2))))
               {:start 0 :start-points [(matrix/create 0 0)]
                :stop (math/sqrt 2) :stop-points [(matrix/create 1 1)]})))
 (test/deftest circle-projection-test

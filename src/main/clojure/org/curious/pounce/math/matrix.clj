@@ -28,6 +28,9 @@
   (batch-set [this row column source])
   (clone [this]))
 
+(def primitive Double/TYPE)
+(def aset-primitive aset-double)
+
 (defn- matrix-equals [this that] (and (= (rows this) (rows that))
                                       (= (columns this) (columns that))
                                       (loop [row (int 0)]
@@ -72,23 +75,23 @@
   (rows [this] (alength data))
   (columns [this] (alength (aget data 0)))
   (get [this row column] (aget data row column))
-  (set [this row column source] (aset-float data row column source) this)
+  (set [this row column source] (aset-primitive data row column source) this)
   (batch-set [this row column source]
              (loop [row-index (int 0)]
                (when (< row-index (columns source))
                  (loop [column-index (int 0)]
                    (when (< column-index (rows source))
-                     (aset-float data (unchecked-add row row-index) (unchecked-add column column-index)
+                     (aset-primitive data (unchecked-add row row-index) (unchecked-add column column-index)
                                  (aget (data source) row-index column-index))
                      (recur (unchecked-inc column-index))))
                  (recur (unchecked-inc row-index))))
              this)
-  (clone [this] (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+  (clone [this] (let [new-data (make-array primitive (rows this) (columns this))]
                   (loop [row (int 0)]
                     (when (< row (rows this))
                       (loop [column (int 0)]
                         (when (< column (columns this))
-                          (aset-float new-data row column (aget data row column))
+                          (aset-primitive new-data row column (aget data row column))
                           (recur (unchecked-inc column))))
                       (recur (unchecked-inc row))))
                   (Matrix. new-data))))
@@ -104,9 +107,9 @@
                            (get matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))
                            0))
   (set [this row column source] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
-                                  (aset-float matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
-                                  (let [new-data (make-array Float/TYPE row-stride column-stride)]
-                                    (aset-float new-data (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
+                                  (aset-primitive matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
+                                  (let [new-data (make-array primitive row-stride column-stride)]
+                                    (aset-primitive new-data (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
                                     (aset matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride) (Matrix. new-data))))
        this)
   (batch-set [this row column source] (aset matrices row column source) this)
@@ -145,7 +148,7 @@
                                   (aget diagonal row)
                                   0))
   (set [this row column value] (if (= row column)
-                                 (aset-float diagonal row value)
+                                 (aset-primitive diagonal row value)
                                  (throw (Exception. "Cannot alter non-diagonal entries in diagonal matrix.")))
        this)
   (batch-set [this row column value] (throw (Exception. "batch-set not available for diagonal matrices.")) this)
@@ -158,12 +161,12 @@
   (TransposeMatrix. this))
 
 (defn diagonal-matrix [& args]
-  (let [data (float-array (count args))]
-    (doall (map-indexed #(aset-float data %1 %2) args))
+  (let [data (make-array primitive (count args))]
+    (doall (map-indexed #(aset-primitive data %1 %2) args))
     (DiagonalMatrix. data)))
 
 (defn allocate-diagonal-matrix [size]
-  (DiagonalMatrix. (float-array size)))
+  (DiagonalMatrix. (make-array primitive size)))
 
 (defn- add-in-place [this that]
   (cond (number? that) (loop [row (int 0)]
@@ -184,19 +187,19 @@
 
 (defn add
   ([this that]
-     (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+     (let [new-data (make-array primitive (rows this) (columns this))]
        (cond (number? that) (loop [row (int 0)]
                               (when (< row (rows this))
                                 (loop [column (int 0)]
                                   (when (< column (columns this))
-                                    (aset-float new-data row column (+ (get this row column) that))
+                                    (aset-primitive new-data row column (+ (get this row column) that))
                                     (recur (unchecked-inc column))))
                                 (recur (unchecked-inc row))))
              (instance? Matrix that) (loop [row (int 0)]
                                       (when (< row (rows this))
                                         (loop [column (int 0)]
                                           (when (< column (columns this))
-                                            (aset-float new-data row column (+ (get this row column) (get that row column)))
+                                            (aset-primitive new-data row column (+ (get this row column) (get that row column)))
                                             (recur (unchecked-inc column))))
                                         (recur (unchecked-inc row)))))
        (Matrix. new-data)))
@@ -223,12 +226,12 @@
 (defn sub
   ([this]
      (cond (number? this) (- this) 
-           (instance? Matrix this) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+           (instance? Matrix this) (let [new-data (make-array primitive (rows this) (columns this))]
                                      (loop [row (int 0)]
                                        (when (< row (rows this))
                                          (loop [column (int 0)]
                                            (when (< column (columns this))
-                                             (aset-float new-data row column (- (get this row column)))
+                                             (aset-primitive new-data row column (- (get this row column)))
                                              (recur (unchecked-inc column))))
                                          (recur (unchecked-inc row))))
                                      (Matrix. new-data))))
@@ -239,23 +242,23 @@
 
 (defn mul
   ([this that]
-     (cond (number? that) (let [new-data (make-array Float/TYPE (rows this) (columns this))]
+     (cond (number? that) (let [new-data (make-array primitive (rows this) (columns this))]
                             (loop [row (int 0)]
                               (when (< row (rows this))
                                 (loop [column (int 0)]
                                   (when (< column (columns this))
-                                    (aset-float new-data row column (* (get this row column) that))
+                                    (aset-primitive new-data row column (* (get this row column) that))
                                     (recur (unchecked-inc column))))
                                 (recur (unchecked-inc row))))
                             (Matrix. new-data))
-           (extends? Table (class that)) (let [new-data (make-array Float/TYPE (rows this) (columns that))]
+           (extends? Table (class that)) (let [new-data (make-array primitive (rows this) (columns that))]
                                            (loop [row (int 0)]
                                              (when (< row (rows this))
                                                (loop [column (int 0)]
                                                  (when (< column (columns that))
                                                    (loop [index (int 0)]
                                                      (when (< index (columns this))
-                                                       (aset-float new-data row column (+ (aget new-data row column)
+                                                       (aset-primitive new-data row column (+ (aget new-data row column)
                                                                                           (* (get this row index)
                                                                                              (get that index column))))
                                                        (recur (unchecked-inc index))))
@@ -267,9 +270,9 @@
 
 (defn div [this that] (mul this (/ that)))
 
-(def zero (Matrix. (doto (make-array Float/TYPE 2 1)
-                     (aset-float 0 0 0)
-                     (aset-float 1 0 0))))
+(def zero (Matrix. (doto (make-array primitive 2 1)
+                     (aset-primitive 0 0 0)
+                     (aset-primitive 1 0 0))))
 (defn x [this] (get this 0 0))
 (defn y [this] (get this 1 0))
 
@@ -290,16 +293,16 @@
 (defn create
   "Returns M if it's a matrix, otherwise (matrix M) is returned."
   [& args] (cond (instance? Matrix (first args)) (first args)
-                 (sequential? (first args)) (let [new-data (make-array Float/TYPE (count (first args)) (count args))]
+                 (sequential? (first args)) (let [new-data (make-array primitive (count (first args)) (count args))]
                                               (dorun (map-indexed (fn [column column-data]
                                                                     (dorun (map-indexed (fn [row value]
-                                                                                          (aset-float new-data row column value))
+                                                                                          (aset-primitive new-data row column value))
                                                                                         column-data)))
                                                                   args))
                                               (Matrix. new-data))
-                 (number? (first args)) (let [new-data (make-array Float/TYPE (count args) 1)]
+                 (number? (first args)) (let [new-data (make-array primitive (count args) 1)]
                                           (dorun (map-indexed (fn [row value]
-                                                                (aset-float new-data row 0 value))
+                                                                (aset-primitive new-data row 0 value))
                                                               args))
                                           (Matrix. new-data))))
 
@@ -307,31 +310,34 @@
   [& args] (apply create args))
 (defn row-matrix
   [& args] (cond (instance? Matrix (first args)) (first args)
-                 (sequential? (first args)) (let [new-data (make-array Float/TYPE (count args) (count (first args)))]
+                 (sequential? (first args)) (let [new-data (make-array primitive (count args) (count (first args)))]
                                               (dorun (map-indexed (fn [row row-data]
                                                                     (dorun (map-indexed (fn [column value]
-                                                                                          (aset-float new-data row column value))
+                                                                                          (aset-primitive new-data row column value))
                                                                                         row-data)))
                                                                   args))
                                               (Matrix. new-data))
-                 (number? (first args)) (let [new-data (make-array Float/TYPE 1 (count args))]
+                 (number? (first args)) (let [new-data (make-array primitive 1 (count args))]
                                           (dorun (map-indexed (fn [column value]
-                                                                (aset-float new-data 0 column value))
+                                                                (aset-primitive new-data 0 column value))
                                                               args))
                                           (Matrix. new-data))))
+
+(defn column [& args] (column-matrix args))
+(defn row [& args] (row-matrix args))
 
 (defn allocate
   "Returns a matrix with the specified rows and columns"
   ([rows] (allocate rows 1))
-  ([rows columns] (Matrix. (make-array Float/TYPE rows columns))))
+  ([rows columns] (Matrix. (make-array primitive rows columns))))
 
 (defn rotation-matrix
   "Calculates the rotation matrix for theta radians"
-  [theta] (Matrix. (doto (make-array Float/TYPE 2 2)
-                     (aset-float 0 0 (math/cos theta))
-                     (aset-float 1 0 (math/sin theta))
-                     (aset-float 0 1 (- (math/sin theta)))
-                     (aset-float 1 1 (math/cos theta)))))
+  [theta] (Matrix. (doto (make-array primitive 2 2)
+                     (aset-primitive 0 0 (math/cos theta))
+                     (aset-primitive 1 0 (math/sin theta))
+                     (aset-primitive 0 1 (- (math/sin theta)))
+                     (aset-primitive 1 1 (math/cos theta)))))
 
 (defn rotate [this theta]
   (create (- (* (x this) (math/cos theta)) (* (y this) (math/sin theta)))
@@ -355,7 +361,7 @@
 
 (defn gauss-seidel
   ([A b] (gauss-seidel A b math/eps))
-  ([A b metric] (gauss-seidel A b (create (repeat (rows b) 1)) metric))
+  ([A b metric] (gauss-seidel A b (create (repeat (rows b) 0)) metric))
   ([A b initial-x metric]
      (let [x (clone initial-x)
            metric-function (if (integer? metric)

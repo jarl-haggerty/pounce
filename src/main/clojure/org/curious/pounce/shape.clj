@@ -17,18 +17,23 @@
   "Defines shape structure and functions for working with them."
   (:import java.awt.Color)
   (:require [org.curious.pounce.math.core :as math]
-            [org.curious.pounce.math.matrix :as matrix]
-            [org.curious.pounce.render :as render]))
+            [org.curious.pounce.math.matrix :as matrix]))
 
 (defprotocol Shape
   (normals [this direction])
   (projection [this line])
   (transform [this t])
   (translate [this t])
-  (rotate [this t]))
+  (rotate [this t])
+  (render [this graphics]))
 
 (def polygon)
 (def circle)
+
+(defn projection= [this that] (and (math/eps= (:start this) (:start that))
+                                   (math/eps= (:stop this) (:stop that))
+                                   (= (:start-points this) (:start-points that))
+                                   (= (:start-points this) (:start-points that))))
 
 (defrecord Polygon [points mass center normals moment-of-inertia]
   Shape
@@ -62,9 +67,7 @@
   (transform [this t] (apply polygon mass (map #(matrix/transform % t) points)))
   (translate [this t] (apply polygon mass (map #(matrix/add t %) points)))
   (rotate [this t] (apply polygon mass (map #(matrix/mul t %) points)))
-  render/Renderable
   (render [this graphics]
-          (.setColor graphics Color/white)
           (doseq [[v1 v2] (map vector
                                points
                                (conj (vec (rest points)) (first points)))]
@@ -83,9 +86,7 @@
   (transform [this t] (circle mass (matrix/transform center t) radius))
   (translate [this t] (circle mass (matrix/add t center) radius))
   (rotate [this t] (circle mass (matrix/mul t center) radius))
-  render/Renderable
   (render [this graphics]
-          (.setColor graphics Color/white)
           (.drawOval graphics
                      (- (matrix/x center) radius)
                      (- (matrix/y center) radius)

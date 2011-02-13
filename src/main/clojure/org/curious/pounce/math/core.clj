@@ -16,40 +16,41 @@
 (ns org.curious.pounce.math.core
   "Math functions and constants.")
 
+(def primitive Double/TYPE)
 (def
  ^{:doc "Positive infinity"}
- positive-infinity Float/POSITIVE_INFINITY)
+ positive-infinity Double/POSITIVE_INFINITY)
 (def
  ^{:doc "Negative infinity"}
- negative-infinity Float/NEGATIVE_INFINITY)
+ negative-infinity Double/NEGATIVE_INFINITY)
 (def
  ^{:doc "NaN"}
- nan Float/NaN)
+ nan Double/NaN)
 (def
  ^{:doc "Pi"}
- pi (float Math/PI))
+ pi Math/PI)
 (def
  ^{:doc "Epsilon, the precision with which floating point numbers will be compared."}
- eps (float 1e-7))
+ eps 1e-10)
 
 (defn is-infinite
   "Determines if a number is infinite."
-  [input] (Float/isInfinite input))
+  [input] (Double/isInfinite input))
 (defn sin
   "The sine function."
-  [input] (float (Math/sin input)))
+  [input] (Math/sin input))
 (defn cos
   "The cosine function."
-  [input] (float (Math/cos input)))
+  [input] (Math/cos input))
 (defn pow
   "Calculates input to the requested power."
-  [input power] (float (Math/pow input power)))
+  [input power] (Math/pow input power))
 (defn sqrt
   "Calculates the square root of the input."
-  [input] (float (Math/sqrt input)))
+  [input] (Math/sqrt input))
 (defn abs
   "Calculates the absolute value of the input."
-  [input] (if (is-infinite input) positive-infinity (float (Math/abs (float input)))))
+  [input] (if (is-infinite input) positive-infinity (Math/abs input)))
 (defn ceil
   "Rounds up x."
   [x] (if (integer? x) x (unchecked-inc (int x))))
@@ -81,3 +82,16 @@
 (defn eps>=
   "Returns true if the difference between two numbers is less than epsilon."
   [x y] (not (eps< x y)))
+(defn map-eps= [this that] (let [this-keys (if (map? this)
+					     (-> this keys set)
+					     (-> this count range))
+                                 that-keys (if (map? that)
+					     (-> that keys set)
+					     (-> that count range))
+                                 reduce-function (fn [x y]
+                                                   (and x (cond
+                                                           (number? (get this y)) (eps= (get this y) (get that y))
+                                                           (associative? (get this y)) (map-eps= (get this y) (get that y))
+                                                           :else (= (get this y) (get that y)))))]
+                             (and (= this-keys that-keys)
+                                  (reduce reduce-function true this-keys))))
