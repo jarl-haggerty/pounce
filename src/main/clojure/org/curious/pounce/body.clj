@@ -57,12 +57,11 @@
      :kinematic (math/is-infinite mass)}))
 
 (defn update [this delta force torque velocity]
-  (let [new-linear-momentum (matrix/add (:linear-momentum this) (matrix/mul force delta))
+  (let [new-linear-momentum (matrix/add (matrix/mul velocity (:mass this)) (:linear-momentum this) (matrix/mul force delta))
         new-angular-momentum (+ (:angular-momentum this) (* torque delta))
         new-linear-velocity (if (:kinematic this)
                               (:linear-velocity this)
-                              (matrix/add (matrix/div new-linear-momentum (:mass this))
-                                          velocity))
+                              (matrix/div new-linear-momentum (:mass this)))
         new-angular-velocity (if (:kinematic this)
                               (:angular-velocity this)
                               (/ new-angular-momentum (:moment-of-inertia this)))

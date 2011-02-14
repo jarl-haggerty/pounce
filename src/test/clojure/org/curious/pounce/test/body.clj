@@ -59,7 +59,7 @@
                              :angular-velocity (/ math/pi 2)
                              :linear-velocity (matrix/column 1 0)
                              :kinematic true)
-                           1 matrix/zero 0 nil)
+                           1 matrix/zero 0 matrix/zero)
               (assoc test-body-2
                 :angular-velocity (/ math/pi 2)
                 :linear-velocity (matrix/column 1 0)

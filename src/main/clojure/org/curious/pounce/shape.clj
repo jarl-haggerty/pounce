@@ -27,16 +27,6 @@
   (rotate [this t])
   (render [this graphics]))
 
-(def polygon)
-<<<<<<< HEAD
-=======
-(def circle)
-
-(defn projection= [this that] (and (math/eps= (:start this) (:start that))
-                                   (math/eps= (:stop this) (:stop that))
-                                   (= (:start-points this) (:start-points that))
-                                   (= (:start-points this) (:start-points that))))
->>>>>>> 719c6af97bac59532bbe0c5eb1be941b74ca31d6
 
 (defrecord Polygon [points mass center normals moment-of-inertia]
   Shape
@@ -67,16 +57,9 @@
                                          [(circ-points (dec back-point-index)) back-point]
                                          [back-point])]]
                              {:start (first front) :stop (first back) :start-points (second front) :stop-points (second back)}))
-<<<<<<< HEAD
   (transform [this t] (Polygon. (map #(matrix/transform % t) points) mass (matrix/transform center t) (map #(matrix/mul (:rotation t) %) normals) moment-of-inertia))
-;  (apply polygon mass (map #(matrix/add t %) points))
   (translate [this t] (Polygon. (vec (map #(matrix/add t %) points)) mass (matrix/add t center) normals moment-of-inertia))
   (rotate [this t] (Polygon. (vec (map #(matrix/mul t %) points)) mass (matrix/mul t center) (vec (map #(matrix/mul t %) normals)) moment-of-inertia))
-=======
-  (transform [this t] (apply polygon mass (map #(matrix/transform % t) points)))
-  (translate [this t] (apply polygon mass (map #(matrix/add t %) points)))
-  (rotate [this t] (apply polygon mass (map #(matrix/mul t %) points)))
->>>>>>> 719c6af97bac59532bbe0c5eb1be941b74ca31d6
   (render [this graphics]
           (doseq [[v1 v2] (map vector
                                points
@@ -93,15 +76,9 @@
                :stop (+ (matrix/dot center line) radius)
                :start-points [(matrix/sub center (matrix/mul line radius))]
                :stop-points [(matrix/add center (matrix/mul line radius))]})
-<<<<<<< HEAD
   (transform [this t] (Circle. (matrix/transform center t) mass radius moment-of-inertia))
   (translate [this t] (Circle. (matrix/add t center) mass radius moment-of-inertia))
   (rotate [this t] (Circle. (matrix/mul t center) mass radius moment-of-inertia))
-=======
-  (transform [this t] (circle mass (matrix/transform center t) radius))
-  (translate [this t] (circle mass (matrix/add t center) radius))
-  (rotate [this t] (circle mass (matrix/mul t center) radius))
->>>>>>> 719c6af97bac59532bbe0c5eb1be941b74ca31d6
   (render [this graphics]
           (.drawOval graphics
                      (- (matrix/x center) radius)
@@ -113,13 +90,8 @@
   "Creates a shape with mass as the first argument and vetices as the rest, or, if the first argument isn't a scalar all the
    arguments will be used as vertices and the shape will have an infinite mass"
   (let [[mass points] (if (number? raw-mass)
-<<<<<<< HEAD
                         [raw-mass (vec (map matrix/mat raw-points))]
                         [math/positive-infinity (vec (map matrix/mat (cons raw-mass raw-points)))])
-=======
-                        [raw-mass (vec (map matrix/create raw-points))]
-                        [math/positive-infinity (vec (map matrix/create (cons raw-mass raw-points)))])
->>>>>>> 719c6af97bac59532bbe0c5eb1be941b74ca31d6
         center (matrix/div (reduce matrix/add points) (count points))
         sides (map #(vector %1 %2) points (conj (vec (rest points)) (first points)))
         moment-of-inertia (* mass 1/6
@@ -145,11 +117,7 @@
    specified center and radius."
   ([center radius] (circle math/positive-infinity center radius))
   ([mass center radius]
-<<<<<<< HEAD
      (Circle. (matrix/mat center)
-=======
-     (Circle. (matrix/create center)
->>>>>>> 719c6af97bac59532bbe0c5eb1be941b74ca31d6
               mass
               radius
               (* mass radius radius 1/2))))
