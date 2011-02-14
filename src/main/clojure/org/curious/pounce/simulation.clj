@@ -51,6 +51,7 @@
        (doseq [collision collisions]
 	 (collision/process-collision collision))
        (clojure.core/assoc sim :bodies (into {} (map #(vector (first %)
+
                                                               (body/update (second %) delta
                                                                            (get-in perturbations+response [(first %) :force] matrix/zero)
                                                                            (get-in perturbations+response [(first %) :torque] 0)

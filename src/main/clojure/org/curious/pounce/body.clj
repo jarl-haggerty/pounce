@@ -68,7 +68,6 @@
                               (/ new-angular-momentum (:moment-of-inertia this)))
         rotation-matrix (matrix/rotation-matrix (* delta new-angular-velocity))
         center (matrix/transform (:center-of-mass this) (:transformation this))]
-;    (if (= (:id this) 1) (println new-linear-velocity))
     (assoc this
       :transformation (matrix/transformation (matrix/add (matrix/mul rotation-matrix
                                                                      (matrix/sub (-> this :transformation :translation)

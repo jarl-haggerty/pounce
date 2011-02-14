@@ -23,9 +23,6 @@
 		   (simulation/assoc box2 (body/create (matrix/transformation 225 140 0) (shape/polygon 1 [0 0] [50 0] [50 50] [0 50])))
 		   (simulation/assoc ground (body/create (matrix/transformation 0 120 0) (shape/polygon [0 0] [500 0] [500 10] [0 10]))))))
 
-;(println @sim)
-;(System/exit 0)
-
 (comment (defmethod collision/process-collision #{box2 ground} [contact]
 		    (println "Box2 hit the ground!"))
 
