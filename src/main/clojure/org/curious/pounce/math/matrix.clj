@@ -28,49 +28,155 @@
   (batch-set [this row column source])
   (clone [this]))
 
-(def primitive Double/TYPE)
-(def aset-primitive aset-double)
+(defprotocol Vector2Protocol
+  (x [this])
+  (y [this]))
+(deftype Vector2 [x-component y-component]
+  Object
+  (equals [this that] (and (math/eps= (x this) (x that))
+                           (math/eps= (y this) (y that))))
+  (toString [this] (str "[" x-component ", " y-component "]"))
+  Vector2Protocol
+  (x [this] x-component)
+  (y [this] y-component))
 
-(defn- matrix-equals [this that] (and (= (rows this) (rows that))
-                                      (= (columns this) (columns that))
-                                      (loop [row (int 0)]
-                                        (if (< row (rows this))
-                                          (if (loop [column (int 0)]
-                                                (if (< column (columns this))
-                                                  (if (math/eps= (get this row column) (get that row column))
-                                                    (recur (unchecked-inc column))
-                                                    false)
-                                                  true))
-                                            (recur (unchecked-inc row))
-                                            false)
-                                          true))))
+(defprotocol Matrix2x2Protocol
+  (ul [this])
+  (ll [this])
+  (ur [this])
+  (lr [this]))
+(deftype Matrix2x2 [ul-component ll-component ur-component lr-component]
+  Object
+  (equals [this that] (and (math/eps= (x this) (x that))
+                           (math/eps= (y this) (y that))))
+  (toString [this] (str "[[" ul-component ", " ll-component "], [" ur-component ", " lr-component "]]"))
+  Matrix2x2Protocol
+  (ul [this] ul-component)
+  (ll [this] ll-component)
+  (ur [this] ur-component)
+  (lr [this] lr-component))
 
-(defn- matrix-string [this] (let [builder (StringBuilder.)]
-                              (.append builder "[")
-                              (loop [column (int 0)]
-                                (when (< column (columns this))
-                                  (loop [row (int 0)]
-                                    (when (< row (rows this))
-                                      (.append builder (get this row column))
-                                      (if (not (and (= column (dec (columns this)))
-                                                    (= row (dec (rows this)))))
-                                        (.append builder " "))
-                                      (recur (unchecked-inc row))))
-                                  (recur (unchecked-inc column))))
-                              (.append builder "] rows: ")
-                              (.append builder (rows this))
-                              (.append builder " columns: ")
-                              (.append builder (columns this))
-                              (.append builder "")
-                              (.toString builder)))
+(defn rotate [R v]
+  (Vector2. (+ (* (ul R) (x v)) (* (ur R) (y v)))
+            (+ (* (ll R) (x v)) (* (lr R) (y v)))))
+(defn compose [R1 R2]
+  (Matrix2x2. (+ (* (ul R1) (ul R2)) (* (ur R1) (ll R2)))
+              (+ (* (ll R1) (ul R2)) (* (lr R1) (ll R2)))
+              (+ (* (ul R1) (ur R2)) (* (ur R1) (lr R2)))
+              (+ (* (ll R1) (ur R2)) (* (lr R1) (lr R2)))))
+(defn add [v w]
+  (Vector2. (+ (x v) (x w)) (+ (y v) (y w))))
+(defn dot [v w]
+  (+ (* (x v) (x w))) (* (y v) (y w)))
+(defn cross [v w]
+  (- (* (x v) (y w)) (* (y v) (x w))))
+(defn length-squared [v]
+  (dot v v))
+(defn length [v]
+     (Math/sqrt (length-squared v)))
+(defn unit [v]
+     (let [len (length v)]
+       (Vector2. (/ (x v) len) (/ (y v) len))))
+(defn rotation [theta]
+  (Matrix2x2. (math/cos theta) (math/sin theta) (- (math/sin theta)) (aset-double 1 1 (math/cos theta))))
 
-(def add)
-(def mul)
+(def swap1 (make-array Double/TYPE 2 2))
+(def swap2 (make-array Double/TYPE 2 2))
+(def swap3 (make-array Double/TYPE 2 2))
+
+(defn get-swap-x [swap] (aget swap 0 0))
+(defn set-swap-x [swap arg] (aset-float swap 0 0 arg))
+(defn get-swap-y [swap] (aget swap 0 1))
+(defn get-swap-y [swap arg] (aset-float swap 0 1 arg))
+(defn get-swap-ul [swap] (aget swap 0 0))
+(defn get-swap-ul [swap arg] (aset-float swap 0 0 arg))
+(defn get-swap-ll [swap] (aget swap 0 1))
+(defn get-swap-ll [swap arg] (aset-float swap 0 1 arg))
+(defn get-swap-ur [swap] (aget swap 1 0))
+(defn get-swap-ur [swap arg] (aset-float swap 1 0 arg))
+(defn get-swap-lr [swap] (aget swap 1 1))
+(defn get-swap-lr [swap arg] (aset-float swap 1 1 arg))
+
+(defn swap-to-vector [swap] `(Vector2. (get-swap-x swap) (get-swap-y swap)))
+(defn swap-to-matrix [swap] `(Matrix2x2. (get-swap-ul swap) (get-swap-ll swap) (get-swap-ur swap) (get-swap-lr swap)))
+(defn matrix*vector=swap [R v swap]
+  (set-swap-x swap (+ (* (ul R) (x v)) (* (ur R) (y v))))
+  (set-swap-y swap (+ (* (ll R) (x v)) (* (lr R) (y v)))))
+(defn compose-to-swap [R1 R2 swap]
+  (set-swap-ul swap (+ (* (ul R1) (ul R2)) (* (ur R1) (ll R2))))
+  (set-swap-ll swap (+ (* (ll R1) (ul R2)) (* (lr R1) (ll R2))))
+  (set-swap-ur swap (+ (* (ul R1) (ur R2)) (* (ur R1) (lr R2))))
+  (set-swap-lr swap (+ (* (ll R1) (ur R2)) (* (lr R1) (lr R2)))))
+(defn vector+vector=swap [v w swap]
+  (set-swap-x swap (+ (x v) (x w)))
+  (set-swap-y swap (+ (y v) (y w))))
+(defn vector+swap=vector [v swap]
+  (Vector2. (+ (x v) (get-swap-x swap)) (+ (y v) (get-swap-y swap))))
+(defn unit=swap [v swap]
+  (let [len (length v)]
+    (set-swap-x swap (/ (x v) len))
+    (set-swap-y swap (/ (y v) len))))
+
+(defrecord Transformation [translation rotation])
+
+(defn transformation
+  "Creates a transform from the specified displacement and rotation angle in radians."
+  ([x y theta] (transformation (Vector2. x y) theta))
+  ([translation theta] (Transformation. translation (if (number? theta)
+                                                         (rotation theta)
+                                                         theta))))
+
+(def
+ ^{:doc "The identity transform."}
+ identity-transformation (transformation 0 0 0))
+
+(defn transform [t v]
+  (matrix*vector=swap (:rotation t) v swap1)
+  (vector+swap=vector (:translation t) swap1))
+
+(defn vec2 [arg]
+  (if (instance? Vector2 arg)
+    arg
+    (Vector2. (first arg) (second arg))))
+
+(defn mat2x2 [arg]
+  (if (instance? Vector2 arg)
+    arg
+    (Vector2. (-> arg first first) (-> arg first second) (-> arg second first) (-> arg second second))))
 
 (deftype Matrix [data]
   Object
-  (equals [this that] (matrix-equals this that))
-  (toString [this] (matrix-string this))
+  (equals [this that] (and (= (rows this) (rows that))
+                           (= (columns this) (columns that))
+                           (loop [row (int 0)]
+                             (if (< row (rows this))
+                               (if (loop [column (int 0)]
+                                     (if (< column (columns this))
+                                       (if (math/eps= (get this row column) (get that row column))
+                                         (recur (unchecked-inc column))
+                                         false)
+                                       true))
+                                 (recur (unchecked-inc row))
+                                 false)
+                               true))))
+  (toString [this] (let [builder (StringBuilder.)]
+                     (.append builder "[")
+                     (loop [column (int 0)]
+                       (when (< column (columns this))
+                         (loop [row (int 0)]
+                           (when (< row (rows this))
+                             (.append builder (get this row column))
+                             (if (not (and (= column (dec (columns this)))
+                                           (= row (dec (rows this)))))
+                               (.append builder " "))
+                             (recur (unchecked-inc row))))
+                         (recur (unchecked-inc column))))
+                     (.append builder "] rows: ")
+                     (.append builder (rows this))
+                     (.append builder " columns: ")
+                     (.append builder (columns this))
+                     (.append builder "")
+                     (.toString builder)))
   Table
   (rows [this] (alength data))
   (columns [this] (alength (aget data 0)))
@@ -96,263 +202,8 @@
                       (recur (unchecked-inc row))))
                   (Matrix. new-data))))
 
-(deftype MultiMatrix [row-stride column-stride matrices]
-  Object
-  (equals [this that] (matrix-equals this that))
-  (toString [this] (matrix-string this))
-  Table
-  (rows [this] (* row-stride (alength matrices)))
-  (columns [this] (* column-stride (alength (aget matrices 0))))
-  (get [this row column] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
-                           (get matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride))
-                           0))
-  (set [this row column source] (if-let [matrix (aget matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride))]
-                                  (aset-double matrix (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
-                                  (let [new-data (make-array Double/TYPE row-stride column-stride)]
-                                    (aset-double new-data (unchecked-remainder row row-stride) (unchecked-remainder column column-stride) source)
-                                    (aset matrices (unchecked-divide row row-stride) (unchecked-divide column column-stride) (Matrix. new-data))))
-       this)
-  (batch-set [this row column source] (aset matrices row column source) this)
-  (clone [this] (let [new-data (make-array Matrix (-> matrices alength) (-> matrices (aget 0) alength))]
-                  (loop [row (int 0)]
-                    (when (< row (-> matrices alength))
-                      (loop [column (int 0)]
-                        (when (< column (-> matrices (aget 0) alength))
-                          (aset new-data row column (if-let [old (aget matrices row column)]
-                                                      (clone old)
-                                                      nil))
-                          (recur (unchecked-inc column))))
-                      (recur (unchecked-inc row))))
-                  (MultiMatrix. row-stride column-stride new-data))))
 
-(deftype TransposeMatrix [original]
-  Object
-  (equals [this that] (matrix-equals this that))
-  (toString [this] (matrix-string this))
-  Table
-  (rows [this] (columns original))
-  (columns [this] (rows original))
-  (get [this row column] (get original column row))
-  (set [this row column value] (set original column row value) this)
-  (batch-set [this row column value] (batch-set original column row (TransposeMatrix. value)) this)
-  (clone [this] (TransposeMatrix. (clone original))))
 
-(deftype DiagonalMatrix [diagonal]
-  Object
-  (equals [this that] (matrix-equals this that))
-  (toString [this] (matrix-string this))
-  Table
-  (rows [this] (alength diagonal))
-  (columns [this] (alength diagonal))
-  (get [this row column] (if (= row column)
-                                  (aget ^doubles diagonal row)
-                                  0))
-  (set [this row column value] (if (= row column)
-                                 (aset-double diagonal row value)
-                                 (throw (Exception. "Cannot alter non-diagonal entries in diagonal matrix.")))
-       this)
-  (batch-set [this row column value] (throw (Exception. "batch-set not available for diagonal matrices.")) this)
-  (clone [this] (DiagonalMatrix. (aclone diagonal))))
-
-(defn multi-matrix [row-stride column-stride rows columns]
-  (MultiMatrix. row-stride column-stride (make-array Matrix rows columns)))
-
-(defn transpose [this]
-  (TransposeMatrix. this))
-
-(defn diagonal-matrix [& args]
-  (let [data (make-array Double/TYPE (count args))]
-    (doall (map-indexed #(aset-double data %1 %2) args))
-    (DiagonalMatrix. data)))
-
-(defn allocate-diagonal-matrix [size]
-  (DiagonalMatrix. (make-array Double/TYPE size)))
-
-(defn- add-in-place [this that]
-  (cond (number? that) (loop [row (int 0)]
-                         (when (< row (rows this))
-                           (loop [column (int 0)]
-                             (when (< column (columns this))
-                               (set this row column (+ (get this row column) that))
-                               (recur (unchecked-inc column))))
-                           (recur (unchecked-inc row))))
-        (instance? Matrix that) (loop [row (int 0)]
-                                  (when (< row (rows this))
-                                    (loop [column (int 0)]
-                                      (when (< column (columns this))
-                                        (set this row column (+ (get this row column) (get that row column)))
-                                        (recur (unchecked-inc column))))
-                                    (recur (unchecked-inc row)))))
-  this)
-
-(defn add
-  ([this that]
-     (let [new-data (make-array Double/TYPE (rows this) (columns this))]
-       (cond (number? that) (loop [row (int 0)]
-                              (when (< row (rows this))
-                                (loop [column (int 0)]
-                                  (when (< column (columns this))
-                                    (aset-double new-data row column (+ (get this row column) that))
-                                    (recur (unchecked-inc column))))
-                                (recur (unchecked-inc row))))
-             (instance? Matrix that) (loop [row (int 0)]
-                                      (when (< row (rows this))
-                                        (loop [column (int 0)]
-                                          (when (< column (columns this))
-                                            (aset-double new-data row column (+ (get this row column) (get that row column)))
-                                            (recur (unchecked-inc column))))
-                                        (recur (unchecked-inc row)))))
-       (Matrix. new-data)))
-  ([this that & others]
-     (reduce add-in-place (add this that) others)))
-
-(defn- sub-in-place [this that]
-  (cond (number? that) (loop [row (int 0)]
-                         (when (< row (rows this))
-                           (loop [column (int 0)]
-                             (when (< column (columns this))
-                               (set this row column (- (get this row column) that))
-                               (recur (unchecked-inc column))))
-                           (recur (unchecked-inc row))))
-        (instance? Matrix that) (loop [row (int 0)]
-                                  (when (< row (rows this))
-                                    (loop [column (int 0)]
-                                      (when (< column (columns this))
-                                        (set this row column (- (get this row column) (get that row column)))
-                                        (recur (unchecked-inc column))))
-                                    (recur (unchecked-inc row)))))
-  this)
-
-(defn sub
-  ([this]
-     (cond (number? this) (- this) 
-           (instance? Matrix this) (let [new-data (make-array Double/TYPE (rows this) (columns this))]
-                                     (loop [row (int 0)]
-                                       (when (< row (rows this))
-                                         (loop [column (int 0)]
-                                           (when (< column (columns this))
-                                             (aset-double new-data row column (- (get this row column)))
-                                             (recur (unchecked-inc column))))
-                                         (recur (unchecked-inc row))))
-                                     (Matrix. new-data))))
-  ([this that]
-     (add-in-place (sub that) this))
-    ([this that & others]
-       (reduce sub-in-place (sub this that) others)))
-
-(defn mul
-  ([this that]
-     (cond (number? that) (let [new-data (make-array Double/TYPE (rows this) (columns this))]
-                            (loop [row (int 0)]
-                              (when (< row (rows this))
-                                (loop [column (int 0)]
-                                  (when (< column (columns this))
-                                    (aset-double new-data row column (* (get this row column) that))
-                                    (recur (unchecked-inc column))))
-                                (recur (unchecked-inc row))))
-                            (Matrix. new-data))
-           (extends? Table (class that)) (let [new-data (make-array Double/TYPE (rows this) (columns that))]
-                                           (loop [row (int 0)]
-                                             (when (< row (rows this))
-                                               (loop [column (int 0)]
-                                                 (when (< column (columns that))
-                                                   (loop [index (int 0)]
-                                                     (when (< index (columns this))
-                                                       (aset-double new-data row column (+ (aget ^doubles new-data row column)
-                                                                                          (* (get this row index)
-                                                                                             (get that index column))))
-                                                       (recur (unchecked-inc index))))
-                                                   (recur (unchecked-inc column))))
-                                               (recur (unchecked-inc row))))
-                                           (Matrix. new-data))))
-  ([this that & more]
-     (reduce mul (mul this that) more)))
-
-(defn div [this that] (mul this (/ that)))
-
-(def zero (Matrix. (doto (make-array Double/TYPE 2 1)
-                     (aset-double 0 0 0)
-                     (aset-double 1 0 0))))
-(defn x [this] (get this 0 0))
-(defn y [this] (get this 1 0))
-
-(defn dot [this that] (loop [row (int 0) accum 0]
-                        (if (< row (rows this))
-                          (recur (unchecked-inc row) (+ accum (* (get this row 0)
-                                                                 (get that row 0))))
-                          accum)))
-
-(defn cross [this that] (- (* (x this) (y that)) (* (x that) (y this))))
-
-(defn length-squared [this] (dot this this))
-
-(defn length [this] (math/sqrt (length-squared this)))
-
-(defn unit [this] (div this (length this)))
-
-(defn column [& args]
-  (let [new-data (make-array Double/TYPE (count args) 1)]
-    (dorun (map-indexed (fn [row value]
-                          (aset-double new-data row 0 value))
-                        args))
-    (Matrix. new-data)))
-
-(defn row [& args]
-  (let [new-data (make-array Double/TYPE 1 (count args))]
-    (dorun (map-indexed (fn [column value]
-                          (aset-double new-data 0 column value))
-                        args))
-    (Matrix. new-data)))
-
-(defn mat [arg]
-  (if (instance? Matrix arg)
-    arg
-    (apply column arg)))
-
-(defn create
-  "Returns the argument if it's a matrix, a matrix with the arguments as rows if they are sequences, or a column matrix if the arguments are numbers."
-  [& args] (cond (instance? Matrix (first args)) (first args)
-                 (sequential? (first args)) (let [new-data (make-array primitive (count (first args)) (count args))]
-                                              (dorun (map-indexed (fn [column column-data]
-                                                                    (dorun (map-indexed (fn [row value]
-                                                                                          (aset-double new-data row column value))
-                                                                                        column-data)))
-                                                                  args))
-                                              (Matrix. new-data))
-                 (number? (first args)) (column args)))
-
-(defn allocate
-  "Returns a matrix with the specified rows and columns"
-  ([rows] (allocate rows 1))
-  ([rows columns] (Matrix. (make-array Double/TYPE rows columns))))
-
-(defn rotation-matrix
-  "Calculates the rotation matrix for theta radians"
-  [theta] (Matrix. (doto (make-array Double/TYPE 2 2)
-                     (aset-double 0 0 (math/cos theta))
-                     (aset-double 1 0 (math/sin theta))
-                     (aset-double 0 1 (- (math/sin theta)))
-                     (aset-double 1 1 (math/cos theta)))))
-
-(defn rotate [this theta]
-  (column (- (* (x this) (math/cos theta)) (* (y this) (math/sin theta)))
-          (+ (* (x this) (math/sin theta)) (* (y this) (math/cos theta)))))
-
-(defrecord Transformation [translation rotation])
-
-(defn transformation
-  "Creates a transform from the specified displacement and rotation angle in radians."
-  ([x y rotation] (transformation (column x y) rotation))
-  ([translation rotation] (Transformation. translation (if (number? rotation)
-                                                         (rotation-matrix rotation)
-                                                         rotation))))
-
-(def
- ^{:doc "The identity transform."}
- identity-transformation (transformation 0 0 0))
-
-(defn transform [this t]
-  (add-in-place (mul (:rotation t) this) (:translation t)))
 
 (defn gauss-seidel
   ([A b] (gauss-seidel A b math/eps))
